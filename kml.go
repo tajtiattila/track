@@ -22,6 +22,11 @@ import (
 */
 
 func decodeKML(r io.Reader) (Track, error) {
+	r, ok := isXML(r, "kml")
+	if !ok {
+		return nil, errBadFormat
+	}
+
 	var kml kmlData
 	if err := xml.NewDecoder(r).Decode(&kml); err != nil {
 		return nil, errBadFormat

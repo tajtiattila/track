@@ -19,6 +19,11 @@ import (
 */
 
 func decodeGPX(r io.Reader) (Track, error) {
+	r, ok := isXML(r, "gpx")
+	if !ok {
+		return nil, errBadFormat
+	}
+
 	d := xml.NewDecoder(r)
 
 	var gpx gpxData
