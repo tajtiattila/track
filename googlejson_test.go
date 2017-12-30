@@ -110,9 +110,5 @@ func TestGoogleJSON(t *testing.T) {
 
 	ts, _ := time.Parse(time.RFC3339, "2008-10-03T07:40:49Z")
 
-	pointEqual(t, trk[0], track.Point{
-		T:    ts,
-		Lat:  52.3190516,
-		Long: 9.4098216,
-	})
+	pointEqual(t, trk[0], track.Pt(ts, 52.3190516, 9.4098216))
 }

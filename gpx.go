@@ -37,7 +37,7 @@ func decodeGPX(r io.Reader) (Track, error) {
 		if err != nil {
 			return nil, decodeError("GPX: invalid timestamp %q", pt.Time)
 		}
-		t[i] = Point{ts, pt.Lat, pt.Long}
+		t[i] = Pt(ts, pt.Lat, pt.Long)
 	}
 	return t, nil
 }

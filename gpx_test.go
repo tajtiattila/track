@@ -50,9 +50,9 @@ func TestGPX(t *testing.T) {
 		t.Fatalf("track length mismatch: want %d got %d", wantLen, len(trk))
 	}
 
-	pointEqual(t, trk[0], track.Point{
-		T:    time.Date(2009, 10, 17, 18, 37, 26, 0, time.UTC),
-		Lat:  47.644548,
-		Long: -122.326897,
-	})
+	pointEqual(t, trk[0], track.Pt(
+		time.Date(2009, 10, 17, 18, 37, 26, 0, time.UTC),
+		47.644548,
+		-122.326897,
+	))
 }

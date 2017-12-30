@@ -65,7 +65,7 @@ func decodeKMLTrk(k kmlTrk) (Track, error) {
 			return nil, decodeError("GPX: invalid coord %q", coord)
 		}
 
-		t[i] = Point{ts, lat, long}
+		t[i] = Pt(ts, lat, long)
 	}
 	return t, nil
 }

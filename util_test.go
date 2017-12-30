@@ -7,15 +7,15 @@ import (
 )
 
 func pointEqual(t *testing.T, got, want track.Point) {
-	if !got.T.Equal(want.T) {
-		t.Fatalf("got time %v, want %v", got.T, want.T)
+	if !got.Time().Equal(want.Time()) {
+		t.Fatalf("got time %v, want %v", got.Time(), want.Time())
 	}
 
-	if got.Lat != want.Lat {
-		t.Fatalf("got latitude %v, want %v", got.Lat, want.Lat)
+	if got.Lat() != want.Lat() {
+		t.Fatalf("got latitude %v, want %v", got.Lat(), want.Lat())
 	}
 
-	if got.Long != want.Long {
-		t.Fatalf("got latitude %v, want %v", got.Long, want.Long)
+	if got.Long() != want.Long() {
+		t.Fatalf("got latitude %v, want %v", got.Long(), want.Long())
 	}
 }

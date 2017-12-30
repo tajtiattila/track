@@ -90,9 +90,9 @@ func TestKML(t *testing.T) {
 		t.Fatalf("track length mismatch: want %d got %d", wantLen, len(trk))
 	}
 
-	pointEqual(t, trk[0], track.Point{
+	pointEqual(t, trk[0], track.Pt(
 		time.Date(2011, 4, 26, 7, 54, 5, 0, time.UTC),
 		54.7805978,
 		9.4376219,
-	})
+	))
 }

@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"io"
 	"strconv"
-	"time"
 )
 
 /* Google location history JSON format:
@@ -42,9 +41,8 @@ func decodeGoogleJSON(r io.Reader) (Track, error) {
 		if err != nil {
 			return nil, decodeError("GoogleJSON: invalid timestamp %v", pt)
 		}
-		ts := time.Unix(int64(ms)/1000, (int64(ms)%1000)*1e6).UTC()
 
-		t = append(t, Point{ts, pt.LatE7 / 1e7, pt.LongE7 / 1e7})
+		t = append(t, Point{ms, int32(pt.LatE7), int32(pt.LongE7)})
 	}
 	return t, nil
 }
