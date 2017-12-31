@@ -29,11 +29,13 @@ type Point struct {
 // Pt returns a new track point.
 func Pt(t time.Time, lat, long float64) Point {
 	return Point{
-		t:    t.UnixNano() / 1e6,
+		t:    itime(t),
 		lat:  icoord(lat),
 		long: icoord(long),
 	}
 }
+
+func itime(t time.Time) int64 { return t.UnixNano() / 1e6 }
 
 func icoord(v float64) int32 {
 	var d float64
