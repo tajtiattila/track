@@ -1,11 +1,28 @@
 package track
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
 	"io"
 	"strconv"
 )
+
+func init() {
+	registerFormat("googlejson", isGoogleJSON, decodeGoogleJSON)
+}
+
+func isGoogleJSON(p []byte) bool {
+	j := json.NewDecoder(bytes.NewReader(p))
+	return readGoogleJSONPrefix(j) == nil
+}
+
+func readGoogleJSONPrefix(j *json.Decoder) error {
+	return readTokens(j,
+		json.Delim('{'),
+		"locations",
+		json.Delim('['))
+}
 
 /* Google location history JSON format:
 
@@ -18,12 +35,8 @@ import (
 
 func decodeGoogleJSON(r io.Reader) (Track, error) {
 	j := json.NewDecoder(r)
-	if err := readTokens(j,
-		json.Delim('{'),
-		"locations",
-		json.Delim('[')); err != nil {
-
-		return nil, errBadFormat
+	if err := readGoogleJSONPrefix(j); err != nil {
+		panic("impossible")
 	}
 
 	var t Track
@@ -34,12 +47,12 @@ func decodeGoogleJSON(r io.Reader) (Track, error) {
 	}
 	for j.More() {
 		if err := j.Decode(&pt); err != nil {
-			return nil, decodeError("GoogleJSON: decode err %v", err.Error())
+			return nil, &DecodeError{err}
 		}
 
 		ms, err := strconv.ParseInt(pt.TimestampMs, 0, 64)
 		if err != nil {
-			return nil, decodeError("GoogleJSON: invalid timestamp %v", pt)
+			return nil, decodeError("invalid timestamp %v", pt)
 		}
 
 		t = append(t, Point{ms, int32(pt.LatE7), int32(pt.LongE7)})

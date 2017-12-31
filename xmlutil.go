@@ -3,28 +3,23 @@ package track
 import (
 	"bytes"
 	"encoding/xml"
-	"io"
 )
 
-// isXML tests if r is an xml having the specifier docNode
-func isXML(r io.Reader, docNode string) (io.Reader, bool) {
-	buf := new(bytes.Buffer)
-	_, err := io.Copy(buf, io.LimitReader(r, 64<<10))
-	if err != nil {
-		return nil, false
-	}
-
-	d := xml.NewDecoder(bytes.NewReader(buf.Bytes()))
-	for {
-		tok, err := d.Token()
-		if err != nil {
-			return nil, false
-		}
-		if se, ok := tok.(xml.StartElement); ok {
-			if se.Name.Local == docNode {
-				return io.MultiReader(buf, r), true
+// isXML returns a detectFunc for an xml having the specified docNode
+func isXML(docNode string) detectFunc {
+	return func(p []byte) bool {
+		d := xml.NewDecoder(bytes.NewReader(p))
+		for {
+			tok, err := d.Token()
+			if err != nil {
+				return false
+			}
+			if se, ok := tok.(xml.StartElement); ok {
+				if se.Name.Local == docNode {
+					return true
+				}
 			}
 		}
+		panic("unreachable")
 	}
-	panic("unreachable")
 }

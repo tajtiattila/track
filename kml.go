@@ -7,6 +7,10 @@ import (
 	"time"
 )
 
+func init() {
+	registerFormat("kml", isXML("kml"), decodeKML)
+}
+
 /* KML Format:
 
 <?xml .. ?>
@@ -22,14 +26,9 @@ import (
 */
 
 func decodeKML(r io.Reader) (Track, error) {
-	r, ok := isXML(r, "kml")
-	if !ok {
-		return nil, errBadFormat
-	}
-
 	var kml kmlData
 	if err := xml.NewDecoder(r).Decode(&kml); err != nil {
-		return nil, errBadFormat
+		return nil, &DecodeError{err}
 	}
 
 	var t Track
@@ -46,7 +45,7 @@ func decodeKML(r io.Reader) (Track, error) {
 func decodeKMLTrk(k kmlTrk) (Track, error) {
 
 	if len(k.When) != len(k.Coord) {
-		return nil, decodeError("KML: track length mismatch (when: %d, coord: %d)", len(k.When), len(k.Coord))
+		return nil, decodeError("length mismatch (when: %d, coord: %d)", len(k.When), len(k.Coord))
 	}
 
 	t := make(Track, len(k.When))
@@ -55,14 +54,14 @@ func decodeKMLTrk(k kmlTrk) (Track, error) {
 		when := k.When[i]
 		ts, err := time.Parse(time.RFC3339, when)
 		if err != nil {
-			return nil, decodeError("GPX: invalid timestamp %q", when)
+			return nil, decodeError("invalid timestamp %q", when)
 		}
 
 		coord := k.Coord[i]
 		var lat, long float64
 		// TODO(tajtiattila): check for garbage after lat/long?
 		if _, err := fmt.Sscanf(coord, "%f %f", &lat, &long); err != nil {
-			return nil, decodeError("GPX: invalid coord %q", coord)
+			return nil, decodeError("invalid coord %q", coord)
 		}
 
 		t[i] = Pt(ts, lat, long)

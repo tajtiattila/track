@@ -6,6 +6,10 @@ import (
 	"time"
 )
 
+func init() {
+	registerFormat("gpx", isXML("gpx"), decodeGPX)
+}
+
 /* GPX Format:
 
 <?xml .. ?>
@@ -19,23 +23,18 @@ import (
 */
 
 func decodeGPX(r io.Reader) (Track, error) {
-	r, ok := isXML(r, "gpx")
-	if !ok {
-		return nil, errBadFormat
-	}
-
 	d := xml.NewDecoder(r)
 
 	var gpx gpxData
 	if err := d.Decode(&gpx); err != nil {
-		return nil, errBadFormat
+		return nil, &DecodeError{err}
 	}
 
 	t := make(Track, len(gpx.Pt))
 	for i, pt := range gpx.Pt {
 		ts, err := time.Parse(time.RFC3339, pt.Time)
 		if err != nil {
-			return nil, decodeError("GPX: invalid timestamp %q", pt.Time)
+			return nil, decodeError("invalid timestamp %q", pt.Time)
 		}
 		t[i] = Pt(ts, pt.Lat, pt.Long)
 	}

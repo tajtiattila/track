@@ -62,13 +62,13 @@ var ErrFormat = errors.New("track: unknown format")
 
 // DecodeError indicates that a format was recognised but decoding failed.
 type DecodeError struct {
-	Reason string
+	Reason error
 }
 
-func (e *DecodeError) Error() string { return e.Reason }
+func (e *DecodeError) Error() string { return "track: " + e.Reason.Error() }
 
 func decodeError(format string, a ...interface{}) error {
-	return &DecodeError{fmt.Sprintf(format, a...)}
+	return &DecodeError{fmt.Errorf(format, a...)}
 }
 
 // errBadFormat is returned by decoders to indicate
@@ -82,45 +82,55 @@ var errBadFormat = errors.New("track: bad format")
 // It returns ErrFormat if the format is not recognised,
 // or the encoded data doesn't contain any tracks.
 func Decode(r io.Reader) (Track, error) {
-	var buf bytes.Buffer
-	tr := io.TeeReader(io.LimitReader(r, 1<<20), &buf)
-	cr := &countReader{r: r}
+	buf := new(bytes.Buffer)
+	_, err := io.Copy(buf, io.LimitReader(r, 64<<10))
+	if err != nil {
+		return nil, err
+	}
 
+	var trk Track
 	for _, f := range formats {
-		rx := io.MultiReader(bytes.NewReader(buf.Bytes()), tr, cr)
-		t, err := f(rx)
-		if len(t) != 0 && err == nil {
-			sort.Sort(byTime(t))
-			return t, nil
-		}
-		if _, ok := err.(*DecodeError); ok {
-			return nil, err
-		}
-		if cr.n != 0 {
-			fmt.Println("hopp")
-			break // read past prefix, can't try other formats
+		if f.detect(buf.Bytes()) {
+			trk, err = f.decode(io.MultiReader(buf, r))
+			break
 		}
 	}
-	return nil, ErrFormat
+
+	if err != nil {
+		return nil, err
+	}
+
+	if len(trk) == 0 {
+		return nil, ErrFormat
+	}
+
+	sort.Sort(byTime(trk))
+	return trk, nil
 }
 
-type formatFunc func(io.Reader) (Track, error)
+type detectFunc func(p []byte) bool
+type decodeFunc func(r io.Reader) (Track, error)
 
-var formats = []formatFunc{
-	decodeGPX,
-	decodeKML,
-	decodeGoogleJSON,
+type format struct {
+	name   string
+	detect detectFunc
+	decode decodeFunc
 }
 
-type countReader struct {
-	r io.Reader
-	n int64
-}
+var formats []format
 
-func (cr *countReader) Read(p []byte) (n int, err error) {
-	n, err = cr.r.Read(p)
-	cr.n += int64(n)
-	return n, err
+func registerFormat(
+	name string,
+	detect detectFunc,
+	decode decodeFunc,
+) {
+
+	for _, f := range formats {
+		if f.name == name {
+			panic("name already registered")
+		}
+	}
+	formats = append(formats, format{name, detect, decode})
 }
 
 type byTime []Point
