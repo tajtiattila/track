@@ -75,6 +75,22 @@ func decodeError(format string, a ...interface{}) error {
 // the underlying encoding doesn't match the decoders own format
 var errBadFormat = errors.New("track: bad format")
 
+// DetectFormat determines if data represents a track file.
+//
+// The string returned the name of the format.
+//
+// Data should be large enough to contain the
+// first data element (such as the document node in XML).
+// Typically the first few kilobytes is sufficient.
+func DetectFormat(data []byte) (string, bool) {
+	for _, f := range formats {
+		if f.detect(data) {
+			return f.name, true
+		}
+	}
+	return "", false
+}
+
 // Decode decodes GPX, KML and Google location history JSON formats.
 //
 // It returns track points found in chronological order.
