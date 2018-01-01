@@ -48,10 +48,10 @@ func icoord(v float64) int32 {
 // Time returns the time of p.
 func (p Point) Time() time.Time { return time.Unix(p.t/1000, (p.t%1000)*1e6).UTC() }
 
-// Lat returns the geographical latitude of p.
+// Lat returns the geographical latitude of p in degrees.
 func (p Point) Lat() float64 { return float64(p.lat) / coordUnit }
 
-// Long returns the geographical longitude of p.
+// Long returns the geographical longitude of p in degrees.
 func (p Point) Long() float64 { return float64(p.long) / coordUnit }
 
 // Track is a series of track points.
