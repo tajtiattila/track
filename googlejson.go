@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"strconv"
+	"time"
 )
 
 func init() {
@@ -55,7 +56,8 @@ func decodeGoogleJSON(r io.Reader) (Track, error) {
 			return nil, decodeError("invalid timestamp %v", pt)
 		}
 
-		t = append(t, Point{ms, int32(pt.LatE7), int32(pt.LongE7)})
+		ts := time.Unix(ms/1000, (ms%1000)*1e6).UTC()
+		t = append(t, Pt(ts, pt.LatE7/1e7, pt.LongE7/1e7))
 	}
 	return t, nil
 }

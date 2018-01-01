@@ -8,6 +8,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"math"
 	"sort"
 	"time"
 )
@@ -28,6 +29,21 @@ type Point struct {
 
 // Pt returns a new track point.
 func Pt(t time.Time, lat, long float64) Point {
+	if lat < -90 {
+		lat = -90
+	} else if lat > 90 {
+		lat = 90
+	}
+
+	if long < -180 || long >= 180 {
+		long = math.Mod(long, 360)
+		if long < 180 {
+			long += 360
+		} else if long >= 180 {
+			long -= 360
+		}
+	}
+
 	return Point{
 		t:    itime(t),
 		lat:  icoord(lat),
@@ -56,7 +72,8 @@ func (p Point) Lat() float64 { return float64(p.lat) / coordUnit }
 // Long returns the geographical longitude of p in degrees.
 func (p Point) Long() float64 { return float64(p.long) / coordUnit }
 
-// Track is a series of track points.
+// Track is a series of track points
+// in chronological order.
 type Track []Point
 
 // ErrFormat indicates that decoding encountered an unknown format.
@@ -122,7 +139,7 @@ func Decode(r io.Reader) (Track, error) {
 		return nil, ErrFormat
 	}
 
-	sort.Sort(byTime(trk))
+	trk.Sort()
 	return trk, nil
 }
 
@@ -149,6 +166,11 @@ func registerFormat(
 		}
 	}
 	formats = append(formats, format{name, detect, decode})
+}
+
+// Sort sorts points of trk in chronological order.
+func (trk Track) Sort() {
+	sort.Sort(byTime(trk))
 }
 
 type byTime []Point
