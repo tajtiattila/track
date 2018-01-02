@@ -73,6 +73,7 @@ func (i *InfoCmd) trackInfo(fn string) {
 	if len(trk) != 0 {
 		fmt.Printf(" start: %s\n", trk[0].Time())
 		fmt.Printf(" end: %s\n", trk[len(trk)-1].Time())
+		memSize(trk, " ")
 		i.stillAnalyze(trk)
 		if i.freq {
 			freqAnalyze(trk)
@@ -118,12 +119,21 @@ func (i *InfoCmd) stillAnalyze(trk track.Track) {
 
 	x := tracksimpl.Run(nil, trk, tracksimpl.StillFilter(i.maxd))
 	showResult(trk, " still filter", len(x))
+	memSize(x, "  ")
 
 	x = tracksimpl.Run(nil, trk, tracksimpl.ReumannWitkam(i.maxd))
 	showResult(trk, " reumann-witkam", len(x))
+	memSize(x, "  ")
 
 	x = tracksimpl.Run(nil, trk, tracksimpl.ReumannWitkam(i.maxd), tracksimpl.StillFilter(i.maxd))
 	showResult(trk, " simplified", len(x))
+	memSize(x, "  ")
+}
+
+func memSize(trk track.Track, pfx string) {
+	fmt.Printf("%smemsize: %.2fM\n", pfx, float64(len(trk)*16)/1e6)
+	_, s := track.Pack(trk, 100, 10, 1024)
+	fmt.Printf("%smemsize (packed): %.2fM\n", pfx, float64(s.MemSize)/1e6)
 }
 
 func showResult(trk track.Track, pfx string, nkeep int) {
