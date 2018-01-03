@@ -1,7 +1,8 @@
-package trackutil
+package tracksimpl
 
 import (
 	"github.com/tajtiattila/track"
+	"github.com/tajtiattila/track/internal/trackmath"
 )
 
 // StillFilter filters src by dropping track points
@@ -12,9 +13,16 @@ import (
 // It replaces all subslices of src[m:n] where
 // src[i] for m <= i <= n are closer to src[m] than maxd
 // with the two points src[m] and src[n] in the output.
-func StillFilter(dst, src track.Track, maxd float64) track.Track {
-	dd := maxd * maxd
-	var stop3 point3
+func StillFilter(maxd float64) Algorithm {
+	return &stillFilter{dd: maxd * maxd}
+}
+
+type stillFilter struct {
+	dd float64 // meters squared
+}
+
+func (f *stillFilter) run(dst, src track.Track) track.Track {
+	var stop3 trackmath.Point3
 	var last track.Point
 	emitLast := false
 	for i, p := range src {
@@ -24,7 +32,7 @@ func StillFilter(dst, src track.Track, maxd float64) track.Track {
 			stop3 = p3
 			dst = append(dst, p)
 		} else {
-			if dist3sq(stop3, p3) > dd {
+			if dist3sq(stop3, p3) > f.dd {
 				if emitLast {
 					dst = append(dst, last)
 				}

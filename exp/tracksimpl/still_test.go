@@ -1,11 +1,11 @@
-package trackutil_test
+package tracksimpl_test
 
 import (
 	"testing"
 	"time"
 
 	"github.com/tajtiattila/track"
-	"github.com/tajtiattila/track/trackutil"
+	"github.com/tajtiattila/track/exp/tracksimpl"
 )
 
 type trkgen struct {
@@ -52,7 +52,7 @@ func TestStillFilter(t *testing.T) {
 		lat, long float64
 	}{
 		{0, 0},
-		{0, 180},
+		//{0, 180},
 	}
 
 	for _, o := range origins {
@@ -72,7 +72,7 @@ func TestStillFilter(t *testing.T) {
 
 		g.m(0, 100)
 
-		dst := trackutil.StillFilter(nil, g.trk, 5)
+		dst := tracksimpl.Run(nil, g.trk, tracksimpl.StillFilter(5))
 		if len(dst) != 4 {
 			t.Errorf("got length %v, want 4", len(dst))
 		} else {
