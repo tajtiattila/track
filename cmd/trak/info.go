@@ -110,10 +110,3 @@ func showResult(trk track.Track, pfx string, nkeep int) {
 	perc := float64(ndrop) / float64(len(trk)) * 100
 	fmt.Printf("%s: %5.2f%% (%d points) dropped\n", pfx, perc, ndrop)
 }
-
-func check(err error) {
-	if err != nil {
-		fmt.Fprintln(os.Stderr, err)
-		os.Exit(1)
-	}
-}
