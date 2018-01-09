@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html>
+    <head>
+        <title>Track visualizer</title>
+
+        <link href="https://fonts.googleapis.com/css?family=Roboto+Mono" rel="stylesheet">
+        <link href="style.css" rel="stylesheet" />
+
+        <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.2.1/jquery.min.js"></script>
+        <script type="text/javascript" src="https://maps.googleapis.com/maps/api/js?key={{.GoogleMapsAPIKey}}&libraries=visualization"></script>
+
+        <script src="util.js"></script>
+        <script src="main.js"></script>
+    </head>
+    <body>
+        <div id="sidebarcontainer">
+          <div id="sidebar">
+            <div id="sidebar-top">
+              <form id="track-form">
+                <div><span>Date</span><input id="date-input"/></div>
+                <div><span>Accuracy</span><input id="accuracy-input"/></div>
+              </form>
+              <div id="trackinfo"></div>
+            </div>
+            <div id="sidebar-content">
+              <div id="track"></div>
+            </div>
+            <div id="sidebar-bottom">
+              <p>bottom</p>
+            </div>
+          </div>
+        </div>
+        <div id="map"></div>
+    </body>
+</html>

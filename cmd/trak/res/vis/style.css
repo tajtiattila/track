@@ -1,0 +1,87 @@
+/* Set a size for our map container, the Google Map will take up 100% of this container */
+#sidebarcontainer {
+  font-family: 'Roboto Mono', monospace;
+  position:absolute;
+  top:0;left:0;
+  width:25%;
+  overflow:hidden;
+  height:100%;
+}
+#sidebar {
+  display: flex;
+  flex-direction: column;
+  border-right: 1px #aaa solid;
+  height:100%;
+  overflow:hidden;
+}
+#sidebar-content {
+  flex-grow: 1;
+  margin-top: 8px;
+  margin-bottom: 8px;
+  border-top: 1px #aaa solid;
+  border-bottom: 1px #aaa solid;
+  overflow:auto;
+}
+#sidebar-top {
+}
+#sidebar-bottom {
+  bottom:0;
+}
+
+#map {
+  position:absolute;
+  right:0;
+  width:75%;
+  /*left:0;right:0;*/
+  top:0;bottom:0;
+}
+
+div.trkpt {
+  font-family: 'Roboto Mono', monospace;
+  font-size: 0.8em;
+  cursor: pointer;
+}
+div.trkpt:hover {
+  background: #ddd;
+}
+div.inaccurate {
+  color: #aaa;
+}
+div.trkpt.selected {
+  background: yellow;
+}
+div.trkpt > span {
+  display: inline-block;
+  margin-right: 1em;
+}
+div.trkpt > span.timestamp {
+}
+span.accuracy {
+  min-width: 2.5em;
+  text-align: right;
+}
+span.dist {
+  min-width: 2.5em;
+  text-align: right;
+}
+span.timedelta {
+  min-width: 2.5em;
+  text-align: right;
+}
+
+
+/*
+::-webkit-scrollbar {
+  width:3px;
+  height:3px;
+  border-left:0;
+  background:rgba(0,0,0,0.1);
+}
+::-webkit-scrollbar-track {
+  background:none;
+}
+::-webkit-scrollbar-thumb {
+  background:#888;
+  border-radius:0;
+}
+*/
