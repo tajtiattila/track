@@ -1,13 +1,7 @@
-// Package track is a simple GPS track parser in Go.
-//
-// It supports GPX, KML and Google location history JSON formats.
+// Package track implements GPS track functions.
 package track
 
 import (
-	"bytes"
-	"errors"
-	"fmt"
-	"io"
 	"math"
 	"sort"
 	"time"
@@ -75,98 +69,6 @@ func (p Point) Long() float64 { return float64(p.long) / coordUnit }
 // Track is a series of track points
 // in chronological order.
 type Track []Point
-
-// ErrFormat indicates that decoding encountered an unknown format.
-var ErrFormat = errors.New("track: unknown format")
-
-// DecodeError indicates that a format was recognised but decoding failed.
-type DecodeError struct {
-	Reason error
-}
-
-func (e *DecodeError) Error() string { return "track: " + e.Reason.Error() }
-
-func decodeError(format string, a ...interface{}) error {
-	return &DecodeError{fmt.Errorf(format, a...)}
-}
-
-// errBadFormat is returned by decoders to indicate
-// the underlying encoding doesn't match the decoders own format
-var errBadFormat = errors.New("track: bad format")
-
-// DetectFormat determines if data represents a track file.
-//
-// The string returned the name of the format.
-//
-// Data should be large enough to contain the
-// first data element (such as the document node in XML).
-// Typically the first few kilobytes is sufficient.
-func DetectFormat(data []byte) (string, bool) {
-	for _, f := range formats {
-		if f.detect(data) {
-			return f.name, true
-		}
-	}
-	return "", false
-}
-
-// Decode decodes GPX, KML and Google location history JSON formats.
-//
-// It returns track points found in chronological order.
-//
-// It returns ErrFormat if the format is not recognised,
-// or the encoded data doesn't contain any tracks.
-func Decode(r io.Reader) (Track, error) {
-	buf := new(bytes.Buffer)
-	_, err := io.Copy(buf, io.LimitReader(r, 64<<10))
-	if err != nil {
-		return nil, err
-	}
-
-	var trk Track
-	for _, f := range formats {
-		if f.detect(buf.Bytes()) {
-			trk, err = f.decode(io.MultiReader(buf, r))
-			break
-		}
-	}
-
-	if err != nil {
-		return nil, err
-	}
-
-	if len(trk) == 0 {
-		return nil, ErrFormat
-	}
-
-	trk.Sort()
-	return trk, nil
-}
-
-type detectFunc func(p []byte) bool
-type decodeFunc func(r io.Reader) (Track, error)
-
-type format struct {
-	name   string
-	detect detectFunc
-	decode decodeFunc
-}
-
-var formats []format
-
-func registerFormat(
-	name string,
-	detect detectFunc,
-	decode decodeFunc,
-) {
-
-	for _, f := range formats {
-		if f.name == name {
-			panic("name already registered")
-		}
-	}
-	formats = append(formats, format{name, detect, decode})
-}
 
 // Sort sorts points of trk in chronological order.
 func (trk Track) Sort() {

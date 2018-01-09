@@ -1,11 +1,11 @@
-package track_test
+package trackio_test
 
 import (
 	"bytes"
 	"testing"
 	"time"
 
-	"github.com/tajtiattila/track"
+	"github.com/tajtiattila/track/trackio"
 )
 
 var sampleGoogleJSON = `{
@@ -37,7 +37,6 @@ var sampleGoogleJSON = `{
     "timeStampMs": "1223020216000",
     "latitudeE7": 523128866,
     "longitudeE7": 94114933,
-    "accuracy" : 98,
     "activity" : [ {
       "timestampMs" : "1513838479184",
       "activity" : [ {
@@ -51,8 +50,7 @@ var sampleGoogleJSON = `{
   }, {
     "timeStampMs": "1223020295000",
     "latitudeE7": 523121066,
-    "longitudeE7": 94110383,
-    "accuracy" : 19
+    "longitudeE7": 94110383
   }, {
     "timeStampMs": "1223020384000",
     "latitudeE7": 523112833,
@@ -98,7 +96,7 @@ var sampleGoogleJSON = `{
 
 func TestGoogleJSON(t *testing.T) {
 	r := bytes.NewReader([]byte(sampleGoogleJSON))
-	trk, err := track.Decode(r)
+	trk, err := trackio.NewDecoder(r).Track()
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -110,5 +108,5 @@ func TestGoogleJSON(t *testing.T) {
 
 	ts, _ := time.Parse(time.RFC3339, "2008-10-03T07:40:49Z")
 
-	pointEqual(t, trk[0], track.Pt(ts, 52.3190516, 9.4098216))
+	pointEqual(t, trk[0], trackio.Pt(ts, 52.3190516, 9.4098216))
 }

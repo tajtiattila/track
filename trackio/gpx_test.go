@@ -1,11 +1,11 @@
-package track_test
+package trackio_test
 
 import (
 	"bytes"
 	"testing"
 	"time"
 
-	"github.com/tajtiattila/track"
+	"github.com/tajtiattila/track/trackio"
 )
 
 // https://en.wikipedia.org/wiki/GPS_Exchange_Format
@@ -40,7 +40,7 @@ var sampleGPX = `<?xml version="1.0" encoding="UTF-8" standalone="no" ?>
 
 func TestGPX(t *testing.T) {
 	r := bytes.NewReader([]byte(sampleGPX))
-	trk, err := track.Decode(r)
+	trk, err := trackio.NewDecoder(r).Track()
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -50,7 +50,7 @@ func TestGPX(t *testing.T) {
 		t.Fatalf("track length mismatch: want %d got %d", wantLen, len(trk))
 	}
 
-	pointEqual(t, trk[0], track.Pt(
+	pointEqual(t, trk[0], trackio.Pt(
 		time.Date(2009, 10, 17, 18, 37, 26, 0, time.UTC),
 		47.644548,
 		-122.326897,
