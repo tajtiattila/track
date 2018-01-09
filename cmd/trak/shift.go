@@ -59,19 +59,12 @@ func (c *ShiftCmd) Run(args []string) error {
 		if err != nil {
 			return err
 		}
-		trk.Merge(seg)
+		trk.Merge(trackTrack(seg))
 	}
 
-	si := trk.TimeIndex(t0.Add(-c.dt))
-	if si > 0 {
-		si--
-	}
-	ei := trk.TimeIndex(t0.Add(c.dt))
-	if ei < len(trk) {
-		ei++
-	}
+	trk = trackTimeRange(trk, t0.Add(-c.dt), t0.Add(c.dt))
 
-	return c.shift(lat, long, t0, trk[si:ei])
+	return c.shift(lat, long, t0, trk)
 }
 
 func (c *ShiftCmd) shift(lat, long float64, orgt time.Time, trk track.Track) error {

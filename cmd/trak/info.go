@@ -3,12 +3,14 @@ package main
 import (
 	"flag"
 	"fmt"
+	"io"
 	"os"
 	"time"
 
 	"github.com/tajtiattila/cmdmain"
 	"github.com/tajtiattila/track"
 	"github.com/tajtiattila/track/exp/tracksimpl"
+	"github.com/tajtiattila/track/trackio"
 )
 
 type InfoCmd struct {
@@ -34,6 +36,9 @@ func (*InfoCmd) ArgNames() string {
 }
 
 func (i *InfoCmd) Run(args []string) error {
+	if len(args) == 0 {
+		return fmt.Errorf("need track path arguments")
+	}
 	for _, fn := range args {
 		i.trackInfo(fn)
 	}
@@ -45,8 +50,24 @@ func (i *InfoCmd) trackInfo(fn string) {
 	check(err)
 	defer f.Close()
 
-	trk, err := track.Decode(f)
-	check(err)
+	d := trackio.NewDecoder(f)
+	if cli.inacc {
+		d.Accuracy = trackio.NoAccuracy
+	}
+
+	var trk track.Track
+	for {
+		pt, reset, err := d.Point()
+		if err == io.EOF {
+			break
+		}
+		check(err)
+		if reset {
+			trk = trk[:0]
+		}
+		trk = append(trk, track.Pt(pt.Time, pt.Lat, pt.Long))
+	}
+	trk.Sort()
 
 	fmt.Printf("%s:\n %d points\n", fn, len(trk))
 	if len(trk) != 0 {

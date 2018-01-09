@@ -49,7 +49,7 @@ func (c *NearCmd) Run(args []string) error {
 		if err != nil {
 			return err
 		}
-		trk.Merge(seg)
+		trk.Merge(trackTrack(seg))
 	}
 
 	return c.find(gc, args[0], trk)
