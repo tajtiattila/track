@@ -7,6 +7,7 @@ import (
 const EarthRadius = 6.371e6 // meters
 
 const degToRad = math.Pi / 180
+const radToDeg = 180 / math.Pi
 
 // Point3 is a 3d coordinate of a point
 // x [0] axis points at the equator at longitude 0
@@ -24,6 +25,12 @@ func Pt3(latDeg, longDeg float64) Point3 {
 		EarthRadius * slat,
 		EarthRadius * clat * slong,
 	}
+}
+
+func (p Point3) LatLong() (lat, long float64) {
+	lat = math.Asin(p[1]/p.Mag()) * radToDeg
+	long = math.Atan2(p[2], p[0]) * radToDeg
+	return
 }
 
 func (p Point3) Add(q Point3) Point3 {
