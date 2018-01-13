@@ -15,7 +15,7 @@ import (
 )
 
 type FilterCmd struct {
-	before, after string
+	start, end string
 
 	date, span string
 
@@ -26,8 +26,8 @@ type FilterCmd struct {
 func init() {
 	cmdmain.Register("filter", func(flags *flag.FlagSet) cmdmain.Command {
 		c := new(FilterCmd)
-		flags.StringVar(&c.before, "before", "", "filter before time (RFC3339)")
-		flags.StringVar(&c.after, "after", "", "filter after time (RFC3339)")
+		flags.StringVar(&c.end, "end", "", "remove point after time (RFC3339)")
+		flags.StringVar(&c.start, "start", "", "remove points before time (RFC3339)")
 		flags.StringVar(&c.date, "date", "", "filter on date (RFC3339)")
 		flags.StringVar(&c.span, "span", "", "date filter span, one of year, month, day, hour (default inferred from -date)")
 		flags.BoolVar(&c.json, "json", false, "print json output similar to google location history json")
@@ -49,12 +49,12 @@ func (c *FilterCmd) Run(args []string) error {
 		return fmt.Errorf("need track path arguments")
 	}
 
-	if c.before == "" && c.after == "" && c.date == "" {
-		return fmt.Errorf("need at least one of -after, -before or -date")
+	if c.end == "" && c.start == "" && c.date == "" {
+		return fmt.Errorf("need at least one of -start, -end or -date")
 	}
 
-	if c.before != "" && c.after != "" && c.date != "" {
-		return fmt.Errorf("-date makes no sense with both -after and -before")
+	if c.end != "" && c.start != "" && c.date != "" {
+		return fmt.Errorf("-date makes no sense with both -start and -end")
 	}
 	if c.span != "" && c.date == "" {
 		return fmt.Errorf("-span needs -date")
@@ -74,17 +74,17 @@ func (c *FilterCmd) Run(args []string) error {
 		}
 		start, end = timeRange(t, prec)
 	}
-	if c.after != "" {
-		t, err := argTime(c.date)
+	if c.start != "" {
+		t, err := argTime(c.start)
 		if err != nil {
 			return errors.Wrap(err, "invalid -start")
 		}
 		start = t
 	}
-	if c.before != "" {
-		t, err := argTime(c.date)
+	if c.end != "" {
+		t, err := argTime(c.end)
 		if err != nil {
-			return errors.Wrap(err, "invalid -before")
+			return errors.Wrap(err, "invalid -end")
 		}
 		end = t
 	}
