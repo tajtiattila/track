@@ -56,7 +56,7 @@ func (c *NearCmd) Run(args []string) error {
 }
 
 func (c *NearCmd) find(gc geocode.Geocoder, place string, trk track.Track) error {
-	lat, long, err := gc.Geocode(place)
+	r, err := gc.Geocode(place)
 	if err != nil {
 		return err
 	}
@@ -64,7 +64,7 @@ func (c *NearCmd) find(gc geocode.Geocoder, place string, trk track.Track) error
 	enter := c.dist * c.dist
 	leave := enter * 4
 
-	q3 := trackmath.Pt3(lat, long)
+	q3 := trackmath.Pt3(r.Lat, r.Long)
 
 	var bestd float64
 	var bestt time.Time

@@ -125,9 +125,6 @@ func timeRange(t time.Time, prec int) (start, end time.Time) {
 func newGeocoder() (geocode.Geocoder, error) {
 	const varname = "GOOGLEMAPS_APIKEY"
 	apikey := os.Getenv(varname)
-	if apikey == "" {
-		return nil, fmt.Errorf("%v env var missing", varname)
-	}
 
 	cachedir, err := basedir.Cache.EnsureDir("trak", 0777)
 	if err != nil {

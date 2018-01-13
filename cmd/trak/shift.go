@@ -43,7 +43,7 @@ func (c *ShiftCmd) Run(args []string) error {
 	}
 	defer gc.Close()
 
-	lat, long, err := gc.Geocode(args[0])
+	r, err := gc.Geocode(args[0])
 	if err != nil {
 		return err
 	}
@@ -64,7 +64,7 @@ func (c *ShiftCmd) Run(args []string) error {
 
 	trk = trackTimeRange(trk, t0.Add(-c.dt), t0.Add(c.dt))
 
-	return c.shift(lat, long, t0, trk)
+	return c.shift(r.Lat, r.Long, t0, trk)
 }
 
 func (c *ShiftCmd) shift(lat, long float64, orgt time.Time, trk track.Track) error {
