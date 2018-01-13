@@ -4,7 +4,6 @@ import (
 	"flag"
 	"fmt"
 	"math"
-	"time"
 
 	"github.com/tajtiattila/cmdmain"
 	"github.com/tajtiattila/geocode"
@@ -61,34 +60,46 @@ func (c *NearCmd) find(gc geocode.Geocoder, place string, trk track.Track) error
 		return err
 	}
 
-	enter := c.dist * c.dist
-	leave := enter * 4
+	if cli.verbose {
+		fmt.Printf("Geocode result for %s is:\n%+v\n", place, r)
+	}
 
 	q3 := trackmath.Pt3(r.Lat, r.Long)
+	ne := trackmath.Pt3(r.North, r.East)
+	sw := trackmath.Pt3(r.South, r.West)
 
-	var bestd float64
-	var bestt time.Time
-	show := func() {
-		fmt.Println(bestt, math.Sqrt(bestd))
+	d2 := c.dist * c.dist
+	if x := dist3sq(q3, ne); x > d2 {
+		d2 = x
 	}
-	entered := false
+	if x := dist3sq(q3, sw); x > d2 {
+		d2 = x
+	}
+
+	if cli.verbose {
+		fmt.Printf("d = %.2f\n", math.Sqrt(d2))
+	}
+
+	in := false
 	for _, p := range trk {
 		p3 := pt3(p)
 		d := p3.Sub(q3)
 		dd := d.Dot(d)
-		if dd < enter {
-			entered = true
-		}
-		if entered && dd > leave {
-			entered = false
-			show()
-			bestd, bestt = 0, time.Time{}
-		}
-		if bestt.IsZero() || dd < bestd {
-			bestd, bestt = dd, p.Time()
+		nextin := dd <= d2
+		if in != nextin {
+			in = nextin
+			if in {
+				fmt.Println("enter>", p.Time())
+			} else {
+				fmt.Println("leave<", p.Time())
+			}
 		}
 	}
-	show()
 
 	return nil
+}
+
+func dist3sq(a, b trackmath.Point3) float64 {
+	d := a.Sub(b)
+	return d.Dot(d)
 }
