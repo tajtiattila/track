@@ -1,6 +1,7 @@
 package track_test
 
 import (
+	"fmt"
 	"testing"
 	"time"
 
@@ -98,6 +99,35 @@ func TestLookup(t *testing.T) {
 			t.Errorf("%s got (%.7f,%.7f) want (%.7f,%.7f)", tt.what,
 				glat, glong,
 				tt.wlat, tt.wlong)
+		}
+	}
+}
+
+func BenchmarkLookup(b *testing.B) {
+	for _, f := range Files {
+		b.Logf("testing %s\n", f)
+		trk := f.track(b)
+
+		times := trackTestTimes(trk)
+
+		b.Run(fmt.Sprintf("%s", f), func(b *testing.B) { atTimes(b, trk, times) })
+
+		for _, l := range []int{128, 256, 512, 1024, 2048} {
+			pk, _ := track.Pack(trk, 1, 1, l)
+			b.Run(fmt.Sprintf("%s pack%d", f, l),
+				func(b *testing.B) { atTimes(b, pk, times) })
+		}
+	}
+}
+
+type atter interface {
+	At(t time.Time) (lat, long float64)
+}
+
+func atTimes(b *testing.B, trk atter, times []time.Time) {
+	for i := 0; i < b.N; i++ {
+		for _, tt := range times {
+			trk.At(tt)
 		}
 	}
 }

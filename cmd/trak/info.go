@@ -132,8 +132,6 @@ func (i *InfoCmd) stillAnalyze(trk track.Track) {
 
 func memSize(trk track.Track, pfx string) {
 	fmt.Printf("%smemsize: %.2fM\n", pfx, float64(len(trk)*16)/1e6)
-	_, s := track.Pack(trk, 100, 10, 1024)
-	fmt.Printf("%smemsize (packed): %.2fM\n", pfx, float64(s.MemSize)/1e6)
 }
 
 func showResult(trk track.Track, pfx string, nkeep int) {
