@@ -3,6 +3,7 @@ package track_test
 import (
 	"fmt"
 	"io"
+	"math"
 	"math/rand"
 	"os"
 	"path/filepath"
@@ -86,9 +87,22 @@ func trackTestTimes(trk track.Track) []time.Time {
 
 type pointCmpFunc func(got, want track.Point) error
 
+func pointCmpPackSame(got, want track.Point) error {
+	dt := int64(got.Time().Sub(want.Time()) / time.Millisecond)
+	if dt < 0 {
+		dt = -dt
+	}
+	dlat := math.Abs(got.Lat() - want.Lat())
+	dlong := math.Abs(got.Long() - want.Long())
+	if dt > 50 || dlat > 6e-7 || dlong > 6e-7 {
+		return fmt.Errorf("got %v want %v", got, want)
+	}
+	return nil
+}
+
 func pointCmpSame(got, want track.Point) error {
 	if got != want {
-		return fmt.Errorf("gor %v want %v", got, want)
+		return fmt.Errorf("got %v want %v", got, want)
 	}
 	return nil
 }

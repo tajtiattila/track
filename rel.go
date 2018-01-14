@@ -5,15 +5,24 @@ import (
 	"fmt"
 	"io"
 	"math/bits"
+	"time"
 	"unsafe"
 )
+
+func Pack(trk Track, tacc, dacc, baz int) (Packed, error) {
+	r := NewPacker()
+	for _, p := range trk {
+		r.Add(p)
+	}
+	return r.Packed(), nil
+}
 
 type Packer struct {
 	pk Packed
 
 	work Track
 
-	bits []bitsPacker
+	bits []*bitsPacker
 
 	buf   []*Packed
 	stack []*Packed
@@ -30,7 +39,7 @@ func NewPacker() *Packer {
 	}
 
 	for nbytes := 2; nbytes <= 8; nbytes++ {
-		k.bits = append(k.bits, bitPk(nbytes))
+		k.bits = append(k.bits, newBitsPacker(nbytes))
 	}
 
 	return k
@@ -39,7 +48,7 @@ func NewPacker() *Packer {
 func (k *Packer) Add(pt Point) {
 	k.work = append(k.work, pt)
 
-	if len(k.work) > packWindow {
+	if len(k.work) >= packWindow {
 		k.pack()
 	}
 }
@@ -56,7 +65,9 @@ func (k *Packer) pack() {
 	trk := k.work
 	k.work = k.work[:0]
 	k.stack = append(k.stack[:0], k.buf...)
-	k.pk.append(k.recpack(trk))
+	pk := k.recpack(trk)
+	chk(trk, pk)
+	k.pk.append(pk)
 }
 
 func (k *Packer) recpack(trk Track) Packed {
@@ -65,8 +76,8 @@ func (k *Packer) recpack(trk Track) Packed {
 	if n > 8 {
 		n /= 2
 		t1, t2 := trk[:n], trk[n:]
-		pk1 := k.bitspack(t1)
-		pk2 := k.bitspack(t2)
+		pk1 := k.recpack(t1)
+		pk2 := k.recpack(t2)
 		if pk1.memsize()+pk2.memsize() < pk.memsize() {
 			return pk1.append(pk2)
 		}
@@ -77,12 +88,11 @@ func (k *Packer) recpack(trk Track) Packed {
 func (k *Packer) bitspack(trk Track) Packed {
 	var best *Packed
 	for _, bp := range k.bits {
-		pk := k.popPacked()
-		pk.packpack(trk, &bp)
+		pk := &Packed{acc: k.pk.acc}
+		//pk := k.popPacked()
+		pk.packpack(trk, bp)
 		if best == nil || pk.memsize() < best.memsize() {
 			best = pk
-		} else {
-			k.pushPacked(pk)
 		}
 	}
 	return *best
@@ -93,6 +103,8 @@ func (k *Packer) popPacked() *Packed {
 	if n > 0 {
 		p := k.stack[n-1]
 		k.stack = k.stack[:n-1]
+		p.frame = p.frame[:0]
+		p.pack = p.pack[:0]
 		return p
 	}
 	p := &Packed{
@@ -103,7 +115,9 @@ func (k *Packer) popPacked() *Packed {
 }
 
 func (k *Packer) pushPacked(p *Packed) {
-	k.stack = append(k.stack, p)
+	if p != nil {
+		k.stack = append(k.stack, p)
+	}
 }
 
 type Packed struct {
@@ -111,6 +125,53 @@ type Packed struct {
 	pack  []byte
 
 	acc ptAcc // accuracy reducer
+}
+
+func (k Packed) Unpack(dst Track) Track {
+	k.ForEach(func(pt Point) error {
+		dst = append(dst, pt)
+		return nil
+	})
+	return dst
+}
+
+func (k Packed) ForEach(fn func(pt Point) error) error {
+	for i, f := range k.frame {
+		if err := fn(k.acc.dec(f.pt)); err != nil {
+			return err
+		}
+
+		j := i + 1
+		var pack []byte
+		if j < len(k.frame) {
+			x := k.frame[j]
+			pack = k.pack[f.ofs():x.ofs()]
+		} else {
+			pack = k.pack[f.ofs():]
+		}
+
+		nbytes, dbits := f.elemBytes(), f.dbits()
+
+		for len(pack) > 0 {
+			dt, dlat, dlong := relFromBytes(pack[:nbytes], dbits)
+			pack = pack[nbytes:]
+
+			pt := Point{
+				f.pt.t + dt,
+				f.pt.lat + dlat,
+				f.pt.long + dlong,
+			}
+			if err := fn(k.acc.dec(pt)); err != nil {
+				return err
+			}
+		}
+	}
+	return nil
+}
+
+func (k Packed) At(t time.Time) (lat, long float64) {
+	panic("todo")
+	return 0, 0
 }
 
 func (k Packed) WriteTo(w io.Writer) (n int, err error) {
@@ -161,6 +222,22 @@ func appendUvarint(dst []byte, v uint64) []byte {
 	var buf [16]byte
 	n := binary.PutUvarint(buf[:], v)
 	return append(dst, buf[:n]...)
+}
+
+func (k *Packed) numpoints() int {
+	var n int
+	for i, f := range k.frame {
+		j := i + 1
+		var pk int
+		if j < len(k.frame) {
+			x := k.frame[j]
+			pk = x.ofs() - f.ofs()
+		} else {
+			pk = len(k.pack) - f.ofs()
+		}
+		n += 1 + pk/f.elemBytes()
+	}
+	return n
 }
 
 func (k *Packed) memsize() uintptr {
@@ -305,7 +382,23 @@ func RelPack(trk Track) {
 		s.nframe, s.nbytes, float64(s.nbytes)/(1<<20),
 		float64(s.nbytes)/float64(nu)*100)
 
+	pkr := NewPacker()
+	for _, p := range trk {
+		pkr.Add(p)
+	}
+	pk := pkr.Packed()
+	cl := new(countLen)
+	n, _ := pk.WriteTo(cl)
+	fmt.Println(len(pk.frame), n, cl.n)
+
 	fmt.Println()
+}
+
+type countLen struct{ n int64 }
+
+func (c *countLen) Write(p []byte) (n int, err error) {
+	c.n += int64(len(p))
+	return len(p), nil
 }
 
 type relPackStat struct {
@@ -334,9 +427,8 @@ func bestRelPackRec(trk Track) relPackStat {
 
 func bestRelPack(trk Track) relPackStat {
 	var best relPackStat
-	for i := 3; i < 8; i++ {
-		bits := i * 8
-		s := relPack(trk, bits)
+	for i := 3; i <= 8; i++ {
+		s := relPack(trk, i)
 		if i == 3 || s.nbytes < best.nbytes {
 			best = s
 		}
@@ -344,8 +436,8 @@ func bestRelPack(trk Track) relPackStat {
 	return best
 }
 
-func relPack(trk Track, bits int) relPackStat {
-	pkr := bitPk(bits)
+func relPack(trk Track, nbytes int) relPackStat {
+	pkr := newBitsPacker(nbytes)
 
 	acc := ptAcc{tacc: 100, dacc: 10}
 
@@ -366,9 +458,9 @@ func relPack(trk Track, bits int) relPackStat {
 	}
 
 	frameBytes := uintptr(nframe) * unsafe.Sizeof(relFrame{})
-	packBytes := uintptr(npk * (bits / 8))
+	packBytes := uintptr(npk * nbytes)
 	return relPackStat{
-		bytesPerPack: bits / 8,
+		bytesPerPack: nbytes,
 		nframe:       nframe,
 		nbytes:       int(frameBytes + packBytes),
 	}
@@ -386,7 +478,7 @@ func (pk *Packed) append(q Packed) Packed {
 }
 
 func (pk *Packed) packpack(trk Track, bpk *bitsPacker) {
-	start := 0
+	var lastFrame *relFrame
 	for i, p0 := range trk {
 		p := pk.acc.enc(p0)
 		frame := true
@@ -395,17 +487,44 @@ func (pk *Packed) packpack(trk Track, bpk *bitsPacker) {
 		}
 
 		if frame {
-			if start < i {
+			if lastFrame != nil {
 				var dbits uint
 				pk.pack, dbits = bpk.pack(pk.pack)
-				lastFrame := &pk.frame[len(pk.frame)-1]
 				lastFrame.setDbits(dbits)
 			}
-			start = i + 1
 
 			bpk.frame(p)
 			pk.frame = append(pk.frame, relFr(p, len(pk.pack), bpk.nbytes, 0))
+			lastFrame = &pk.frame[len(pk.frame)-1]
 		}
+	}
+
+	if !bpk.empty() {
+		var dbits uint
+		pk.pack, dbits = bpk.pack(pk.pack)
+		lastFrame.setDbits(dbits)
+	}
+
+	//chk(trk, *pk)
+}
+
+func chk(trk Track, pk Packed) {
+	var i int
+	pk.ForEach(func(p Point) error {
+		q := trk[i]
+		i++
+		dt := p.t - q.t
+		dlat := p.lat - q.lat
+		dlong := p.long - q.long
+		if dt > 50 || dlat > 5 || dlong > 5 {
+			fmt.Println(i, dt, dlat, dlong)
+			panic("pointerr")
+		}
+		return nil
+	})
+
+	if len(trk) != i {
+		panic("hopp")
 	}
 }
 
@@ -414,7 +533,7 @@ type bitsPacker struct {
 
 	fr Point
 
-	pt []relPt
+	pt []relPoint
 
 	elem []relPackElem
 
@@ -427,13 +546,40 @@ type relPackElem struct {
 	valid bool
 }
 
-type relPt struct {
+type relPoint struct {
 	t         uint64
 	lat, long uint32
 }
 
-func bitPk(nbytes int) bitsPacker {
-	p := bitsPacker{
+func relFromBytes(p []byte, dbits uint) (t int64, lat, long int32) {
+	var v uint64
+	for _, b := range p {
+		v = (v << 8) | uint64(b)
+	}
+
+	m := uint32(1<<dbits - 1)
+
+	t = int64(v >> (2 * dbits))
+	lat = dreldec(uint32(v>>dbits) & m)
+	long = dreldec(uint32(v) & m)
+
+	return
+}
+
+func (r relPoint) append(dst []byte, nbytes int, dbits uint) []byte {
+	v := ((uint64(r.t)<<dbits)|uint64(r.lat))<<dbits | uint64(r.long)
+
+	for n := uint(nbytes); n > 0; {
+		n--
+		shift := n * 8
+		dst = append(dst, byte((v>>shift)&0xff))
+	}
+
+	return dst
+}
+
+func newBitsPacker(nbytes int) *bitsPacker {
+	p := &bitsPacker{
 		nbytes: nbytes,
 	}
 
@@ -449,12 +595,8 @@ func bitPk(nbytes int) bitsPacker {
 	return p
 }
 
-func (k *bitsPacker) last() (tbits, dbits uint) {
-	if k.idx < 0 {
-		panic("bitsPacker: illegal last")
-	}
-	e := k.elem[k.idx]
-	return e.tbits, e.dbits
+func (k *bitsPacker) empty() bool {
+	return len(k.pt) == 0
 }
 
 func (k *bitsPacker) frame(pt Point) {
@@ -478,24 +620,24 @@ func (k *bitsPacker) add(pt Point) bool {
 		bd = x
 	}
 
-	hasvalid := false
-	k.idx = -1
+	idx := -1
 	for i := range k.elem {
 		e := &k.elem[i]
 		if e.valid {
-			if k.idx == -1 {
-				k.idx = i
-			}
 			if bt <= e.tbits && bd <= e.dbits {
-				hasvalid = true
+				if idx == -1 {
+					idx = i
+				}
 			} else {
 				e.valid = false
 			}
 		}
 	}
 
+	hasvalid := idx >= 0
 	if hasvalid {
-		k.pt = append(k.pt, relPt{uint64(dt), dlat, dlong})
+		k.idx = idx
+		k.pt = append(k.pt, relPoint{uint64(dt), dlat, dlong})
 	}
 
 	return hasvalid
@@ -507,13 +649,7 @@ func (k *bitsPacker) pack(dst []byte) ([]byte, uint) {
 	}
 	e := k.elem[k.idx]
 	for _, d := range k.pt {
-		v := ((uint64(d.t) << e.dbits) | uint64(d.lat)<<e.dbits) | uint64(d.long)
-
-		for n := uint(k.nbytes); n >= 0; {
-			n--
-			shift := n * 8
-			dst = append(dst, byte((v>>shift)&0xff))
-		}
+		dst = d.append(dst, k.nbytes, e.dbits)
 	}
 	return dst, e.dbits
 }

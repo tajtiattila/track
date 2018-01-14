@@ -17,7 +17,7 @@ func TestPackedUnpack(t *testing.T) {
 
 		xtrk := pk.Unpack(nil)
 
-		if err := trackCmp(xtrk, trk, pointCmpSame); err != nil {
+		if err := trackCmp(xtrk, trk, pointCmpPackSame); err != nil {
 			t.Error(err)
 		}
 	}
