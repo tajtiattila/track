@@ -1,7 +1,9 @@
 package track
 
 import (
+	"encoding/binary"
 	"fmt"
+	"io"
 	"math/bits"
 	"unsafe"
 )
@@ -9,15 +11,29 @@ import (
 type Packer struct {
 	pk Packed
 
-	work []Point
+	work Track
+
+	bits []bitsPacker
+
+	buf   []*Packed
+	stack []*Packed
 }
 
 const packWindow = 512
 
 func NewPacker() *Packer {
-	return &Packer{
+	k := &Packer{
 		work: make([]Point, 0, packWindow),
+		pk: Packed{
+			acc: ptAcc{tacc: 100, dacc: 10},
+		},
 	}
+
+	for nbytes := 2; nbytes <= 8; nbytes++ {
+		k.bits = append(k.bits, bitPk(nbytes))
+	}
+
+	return k
 }
 
 func (k *Packer) Add(pt Point) {
@@ -34,29 +50,162 @@ func (k *Packer) Packed() Packed {
 }
 
 func (k *Packer) pack() {
-	panic("TODO: implement")
+	if len(k.work) == 0 {
+		return
+	}
+	trk := k.work
+	k.work = k.work[:0]
+	k.stack = append(k.stack[:0], k.buf...)
+	k.pk.append(k.recpack(trk))
+}
+
+func (k *Packer) recpack(trk Track) Packed {
+	n := len(trk)
+	pk := k.bitspack(trk)
+	if n > 8 {
+		n /= 2
+		t1, t2 := trk[:n], trk[n:]
+		pk1 := k.bitspack(t1)
+		pk2 := k.bitspack(t2)
+		if pk1.memsize()+pk2.memsize() < pk.memsize() {
+			return pk1.append(pk2)
+		}
+	}
+	return pk
+}
+
+func (k *Packer) bitspack(trk Track) Packed {
+	var best *Packed
+	for _, bp := range k.bits {
+		pk := k.popPacked()
+		pk.packpack(trk, &bp)
+		if best == nil || pk.memsize() < best.memsize() {
+			best = pk
+		} else {
+			k.pushPacked(pk)
+		}
+	}
+	return *best
+}
+
+func (k *Packer) popPacked() *Packed {
+	n := len(k.stack)
+	if n > 0 {
+		p := k.stack[n-1]
+		k.stack = k.stack[:n-1]
+		return p
+	}
+	p := &Packed{
+		acc: k.pk.acc,
+	}
+	k.buf = append(k.buf, p)
+	return p
+}
+
+func (k *Packer) pushPacked(p *Packed) {
+	k.stack = append(k.stack, p)
 }
 
 type Packed struct {
 	frame []relFrame
 	pack  []byte
+
+	acc ptAcc // accuracy reducer
+}
+
+func (k Packed) WriteTo(w io.Writer) (n int, err error) {
+	buf := make([]byte, 256)
+	buf[0] = 1 // version
+	i := 1
+	m := binary.PutUvarint(buf[i:], uint64(k.acc.tacc))
+	i += m
+	m = binary.PutUvarint(buf[i:], uint64(k.acc.dacc))
+	i += m
+	m = binary.PutUvarint(buf[i:], uint64(len(k.frame)))
+	i += m
+	m = binary.PutUvarint(buf[i:], uint64(len(k.pack)))
+	i += m
+
+	n, err = w.Write(buf[:i])
+	if err != nil {
+		return n, err
+	}
+
+	bo := binary.BigEndian
+	for _, f := range k.frame {
+		bo.PutUint64(buf, uint64(f.pt.t))
+		i = 8
+
+		bo.PutUint32(buf[i:], uint32(f.pt.lat))
+		i += 4
+
+		bo.PutUint32(buf[i:], uint32(f.pt.long))
+		i += 4
+
+		bo.PutUint64(buf[i:], uint64(f.data))
+		i += 8
+
+		m, err = w.Write(buf[:i])
+		n += m
+		if err != nil {
+			return n, err
+		}
+	}
+
+	m, err = w.Write(k.pack)
+	n += m
+	return n, err
+}
+
+func appendUvarint(dst []byte, v uint64) []byte {
+	var buf [16]byte
+	n := binary.PutUvarint(buf[:], v)
+	return append(dst, buf[:n]...)
+}
+
+func (k *Packed) memsize() uintptr {
+	nf := uintptr(len(k.frame)) * unsafe.Sizeof(relFrame{})
+	np := uintptr(len(k.pack))
+	return nf + np
 }
 
 type relFrame struct {
-	pt    Point
-	ofsex uint64
+	pt   Point
+	data uint64 // dbits, elemBytes and offset
 }
 
+func relFr(pt Point, ofs, elemBytes, dbits int) relFrame {
+	d := uint64(ofs) |
+		uint64(elemBytes)<<48 |
+		uint64(dbits)<<56
+	return relFrame{
+		pt:   pt,
+		data: d,
+	}
+}
+
+const ofsMask = uint64(0xffffffffffff)
+
 func (f relFrame) ofs() int {
-	return int(f.ofsex & 0xffffffffffff) // bottom 48 bits
+	return int(f.data & ofsMask) // bottom 48 bits
 }
 
 func (f relFrame) elemBytes() int {
-	return int(f.ofsex>>48) & 0xff
+	return int(f.data>>48) & 0xff
 }
 
-func (f relFrame) dbits() int {
-	return int(f.ofsex>>56) & 0xff
+func (f relFrame) dbits() uint {
+	return uint(f.data>>56) & 0xff
+}
+
+func (f *relFrame) addOfs(ofs int) {
+	ofs += f.ofs()
+	f.data = (f.data & ^ofsMask) | uint64(ofs)
+}
+
+func (f *relFrame) setDbits(v uint) {
+	f.data = f.data & ^(uint64(0xff) << 56)
+	f.data |= uint64(v) << 56
 }
 
 type ptAcc struct {
@@ -196,7 +345,7 @@ func bestRelPack(trk Track) relPackStat {
 }
 
 func relPack(trk Track, bits int) relPackStat {
-	pkr := newBitsPacker(bits)
+	pkr := bitPk(bits)
 
 	acc := ptAcc{tacc: 100, dacc: 10}
 
@@ -225,10 +374,51 @@ func relPack(trk Track, bits int) relPackStat {
 	}
 }
 
+func (pk *Packed) append(q Packed) Packed {
+	n := len(pk.frame)
+	d := len(pk.pack)
+	pk.frame = append(pk.frame, q.frame...)
+	pk.pack = append(pk.pack, q.pack...)
+	for i := n; i < len(pk.frame); i++ {
+		pk.frame[i].addOfs(d)
+	}
+	return *pk
+}
+
+func (pk *Packed) packpack(trk Track, bpk *bitsPacker) {
+	start := 0
+	for i, p0 := range trk {
+		p := pk.acc.enc(p0)
+		frame := true
+		if i != 0 && bpk.add(p) {
+			frame = false
+		}
+
+		if frame {
+			if start < i {
+				var dbits uint
+				pk.pack, dbits = bpk.pack(pk.pack)
+				lastFrame := &pk.frame[len(pk.frame)-1]
+				lastFrame.setDbits(dbits)
+			}
+			start = i + 1
+
+			bpk.frame(p)
+			pk.frame = append(pk.frame, relFr(p, len(pk.pack), bpk.nbytes, 0))
+		}
+	}
+}
+
 type bitsPacker struct {
-	pt Point
+	nbytes int
+
+	fr Point
+
+	pt []relPt
 
 	elem []relPackElem
+
+	idx int // last valid elem idx
 }
 
 type relPackElem struct {
@@ -237,9 +427,19 @@ type relPackElem struct {
 	valid bool
 }
 
-func newBitsPacker(bits int) *bitsPacker {
-	p := new(bitsPacker)
+type relPt struct {
+	t         uint64
+	lat, long uint32
+}
+
+func bitPk(nbytes int) bitsPacker {
+	p := bitsPacker{
+		nbytes: nbytes,
+	}
+
 	const minBits = 4
+
+	bits := 8 * nbytes
 	imax := (bits - minBits) / 2
 	for i := minBits; i <= imax; i++ {
 		dbits := uint(i)
@@ -249,36 +449,43 @@ func newBitsPacker(bits int) *bitsPacker {
 	return p
 }
 
+func (k *bitsPacker) last() (tbits, dbits uint) {
+	if k.idx < 0 {
+		panic("bitsPacker: illegal last")
+	}
+	e := k.elem[k.idx]
+	return e.tbits, e.dbits
+}
+
 func (k *bitsPacker) frame(pt Point) {
-	k.pt = pt
+	k.fr = pt
+	k.pt = k.pt[:0]
 	for i := range k.elem {
 		k.elem[i].valid = true
 	}
 }
 
 func (k *bitsPacker) add(pt Point) bool {
-	dt := pt.t - k.pt.t
+	dt := pt.t - k.fr.t
 	if dt < 0 {
 		panic("track invalid")
 	}
-	dlat := pt.lat - k.pt.lat
-	dlong := pt.long - k.pt.long
+	dlat := drelenc(pt.lat - k.fr.lat)
+	dlong := drelenc(pt.long - k.fr.long)
 	bt := uint(bits.Len64(uint64(dt)))
-	if dlat < 0 {
-		dlat = -dlat
-	}
-	if dlong < 0 {
-		dlong = -dlong
-	}
-	bd := uint(bits.Len32(uint32(dlat)) + 1)
-	if x := uint(bits.Len32(uint32(dlat)) + 1); x > bd {
+	bd := uint(bits.Len32(uint32(dlat)))
+	if x := uint(bits.Len32(uint32(dlong))); x > bd {
 		bd = x
 	}
 
 	hasvalid := false
+	k.idx = -1
 	for i := range k.elem {
 		e := &k.elem[i]
 		if e.valid {
+			if k.idx == -1 {
+				k.idx = i
+			}
 			if bt <= e.tbits && bd <= e.dbits {
 				hasvalid = true
 			} else {
@@ -287,5 +494,38 @@ func (k *bitsPacker) add(pt Point) bool {
 		}
 	}
 
+	if hasvalid {
+		k.pt = append(k.pt, relPt{uint64(dt), dlat, dlong})
+	}
+
 	return hasvalid
+}
+
+func (k *bitsPacker) pack(dst []byte) ([]byte, uint) {
+	if k.idx < 0 {
+		panic("bitsPacker: illegal pack")
+	}
+	e := k.elem[k.idx]
+	for _, d := range k.pt {
+		v := ((uint64(d.t) << e.dbits) | uint64(d.lat)<<e.dbits) | uint64(d.long)
+
+		for n := uint(k.nbytes); n >= 0; {
+			n--
+			shift := n * 8
+			dst = append(dst, byte((v>>shift)&0xff))
+		}
+	}
+	return dst, e.dbits
+}
+
+func drelenc(v int32) uint32 {
+	return uint32((v << 1) ^ (v >> 31))
+}
+
+func dreldec(v uint32) int32 {
+	x := int32(v >> 1)
+	if v&1 != 0 {
+		x = ^x
+	}
+	return x
 }
