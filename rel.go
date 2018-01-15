@@ -197,57 +197,43 @@ func (k Packed) At(t time.Time) (lat, long float64) {
 		pack = k.pack[f.ofs():]
 	}
 
-	nelems := len(pack) / nbytes
+	nelem := len(pack) / nbytes
 
 	ttx := tt - f.pt.t
-	j := sort.Search(nelems, func(i int) bool {
-		o := i * nbytes
+	j := sort.Search(nelem, func(j int) bool {
+		o := j * nbytes
 		dt := tFromBytes(pack[o:o+nbytes], dbits)
 		return ttx < dt
 	})
 
-	var p, q Point
-	if j == 0 {
-		p = f.pt
-		if nelems != 0 {
-			dt, dlat, dlong := relFromBytes(pack[:nbytes], dbits)
-			q = Point{
-				p.t + dt,
-				p.lat + dlat,
-				p.long + dlong,
-			}
-		} else if i < len(k.frame) {
-			x := k.frame[i]
-			q = x.pt
+	p := f.pt
+	if j != 0 {
+		o := (j - 1) * nbytes
+		dt, dlat, dlong := relFromBytes(pack[o:o+nbytes], dbits)
+		p.t += dt
+		p.lat += dlat
+		p.long += dlong
+	}
+
+	q := f.pt
+	if j < nelem {
+		o := j * nbytes
+		dt, dlat, dlong := relFromBytes(pack[o:o+nbytes], dbits)
+		q.t += dt
+		q.lat += dlat
+		q.long += dlong
+	} else {
+		if i < len(k.frame) {
+			q = k.frame[i].pt
 		} else {
+			// time after last pt
 			p = k.acc.dec(p)
 			return p.Lat(), p.Long()
 		}
-	} else {
-		o := (j - 1) * nbytes
-		dt, dlat, dlong := relFromBytes(pack[o:o+nbytes], dbits)
-		p = Point{
-			f.pt.t + dt,
-			f.pt.lat + dlat,
-			f.pt.long + dlong,
-		}
-		if j < nelems {
-			o += nbytes
-			dt, dlat, dlong := relFromBytes(pack[o:o+nbytes], dbits)
-			q = Point{
-				f.pt.t + dt,
-				f.pt.lat + dlat,
-				f.pt.long + dlong,
-			}
-		} else {
-			if i < len(k.frame) {
-				q = k.frame[i].pt
-			} else {
-				// time after last pt
-				p = k.acc.dec(p)
-				return p.Lat(), p.Long()
-			}
-		}
+	}
+
+	if !(p.t <= tt && tt < q.t) {
+		fmt.Printf("hopp %s %d < %d < %d\n", t, p.t, tt, q.t)
 	}
 
 	p = k.acc.dec(p)

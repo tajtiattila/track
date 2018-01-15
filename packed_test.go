@@ -40,7 +40,7 @@ func TestPackedLookup(t *testing.T) {
 			dlong := math.Abs(wlong - glong)
 			if dlat > 1.5e-6 || dlong > 1.5e-6 {
 				t.Errorf("lookup: at %s got %.6f,%.6f want %.6f,%.6f",
-					tt, glat, glong, wlat, wlong)
+					tt.Format("2006-01-02T15:04:05.000Z"), glat, glong, wlat, wlong)
 			}
 		}
 	}

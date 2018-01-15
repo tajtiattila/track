@@ -69,7 +69,7 @@ func (tf testFile) track(t testing.TB) track.Track {
 
 func trackTestTimes(trk track.Track) []time.Time {
 	var times []time.Time
-	for i := -10; i < 10; i++ {
+	for i := -10; i <= 10; i++ {
 		dt := time.Duration(i) * time.Second
 		times = append(times, trk.StartTime().Add(dt), trk.EndTime().Add(dt))
 	}
@@ -92,9 +92,10 @@ func pointCmpPackSame(got, want track.Point) error {
 	if dt < 0 {
 		dt = -dt
 	}
-	dlat := math.Abs(got.Lat() - want.Lat())
-	dlong := math.Abs(got.Long() - want.Long())
-	if dt > 50 || dlat > 6e-7 || dlong > 6e-7 {
+	dlat := got.Lat() - want.Lat()
+	dlong := got.Long() - want.Long()
+	dd := math.Sqrt(dlat*dlat + dlong*dlong)
+	if dt > 50 || dd > 2e-6 {
 		return fmt.Errorf("got %v want %v", got, want)
 	}
 	return nil
