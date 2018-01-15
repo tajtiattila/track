@@ -1,6 +1,7 @@
 package track_test
 
 import (
+	"math"
 	"testing"
 
 	"github.com/tajtiattila/track"
@@ -35,7 +36,9 @@ func TestPackedLookup(t *testing.T) {
 		for _, tt := range trackTestTimes(trk) {
 			glat, glong := pk.At(tt)
 			wlat, wlong := trk.At(tt)
-			if glat != wlat || glong != wlong {
+			dlat := math.Abs(wlat - glat)
+			dlong := math.Abs(wlong - glong)
+			if dlat > 1.5e-6 || dlong > 1.5e-6 {
 				t.Errorf("lookup: at %s got %.6f,%.6f want %.6f,%.6f",
 					tt, glat, glong, wlat, wlong)
 			}

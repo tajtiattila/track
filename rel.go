@@ -5,8 +5,11 @@ import (
 	"fmt"
 	"io"
 	"math/bits"
+	"sort"
 	"time"
 	"unsafe"
+
+	"github.com/tajtiattila/track/internal/trackmath"
 )
 
 func Pack(trk Track, tacc, dacc, baz int) (Packed, error) {
@@ -170,8 +173,109 @@ func (k Packed) ForEach(fn func(pt Point) error) error {
 }
 
 func (k Packed) At(t time.Time) (lat, long float64) {
-	panic("todo")
-	return 0, 0
+	tt := (itime(t) + k.acc.tacc/2) / k.acc.tacc
+	i := sort.Search(len(k.frame), func(i int) bool {
+		return tt < k.frame[i].pt.t
+	})
+
+	if i == 0 {
+		if len(k.frame) == 0 {
+			return 0, 0
+		}
+		p := k.acc.dec(k.frame[0].pt)
+		return p.Lat(), p.Long()
+	}
+
+	f := k.frame[i-1]
+	nbytes, dbits := f.elemBytes(), f.dbits()
+
+	var pack []byte
+	if i < len(k.frame) {
+		x := k.frame[i]
+		pack = k.pack[f.ofs():x.ofs()]
+	} else {
+		pack = k.pack[f.ofs():]
+	}
+
+	nelems := len(pack) / nbytes
+
+	ttx := tt - f.pt.t
+	j := sort.Search(nelems, func(i int) bool {
+		o := i * nbytes
+		dt := tFromBytes(pack[o:o+nbytes], dbits)
+		return ttx < dt
+	})
+
+	var p, q Point
+	if j == 0 {
+		p = f.pt
+		if nelems != 0 {
+			dt, dlat, dlong := relFromBytes(pack[:nbytes], dbits)
+			q = Point{
+				p.t + dt,
+				p.lat + dlat,
+				p.long + dlong,
+			}
+		} else if i < len(k.frame) {
+			x := k.frame[i]
+			q = x.pt
+		} else {
+			p = k.acc.dec(p)
+			return p.Lat(), p.Long()
+		}
+	} else {
+		o := (j - 1) * nbytes
+		dt, dlat, dlong := relFromBytes(pack[o:o+nbytes], dbits)
+		p = Point{
+			f.pt.t + dt,
+			f.pt.lat + dlat,
+			f.pt.long + dlong,
+		}
+		if j < nelems {
+			o += nbytes
+			dt, dlat, dlong := relFromBytes(pack[o:o+nbytes], dbits)
+			q = Point{
+				f.pt.t + dt,
+				f.pt.lat + dlat,
+				f.pt.long + dlong,
+			}
+		} else {
+			if i < len(k.frame) {
+				q = k.frame[i].pt
+			} else {
+				// time after last pt
+				p = k.acc.dec(p)
+				return p.Lat(), p.Long()
+			}
+		}
+	}
+
+	p = k.acc.dec(p)
+	q = k.acc.dec(q)
+
+	return trackmath.Interpolate(t,
+		p.Time(), p.Lat(), p.Long(),
+		q.Time(), q.Lat(), q.Long())
+}
+
+func (k *Packed) end() Point {
+	n := len(k.frame)
+	if n == 0 {
+		return Point{}
+	}
+	f := k.frame[n-1]
+
+	nbytes, dbits := f.elemBytes(), f.dbits()
+	last := k.pack[len(k.pack)-nbytes:]
+
+	dt, dlat, dlong := relFromBytes(last, dbits)
+
+	pt := Point{
+		f.pt.t + dt,
+		f.pt.lat + dlat,
+		f.pt.long + dlong,
+	}
+	return pt
 }
 
 func (k Packed) WriteTo(w io.Writer) (n int, err error) {
@@ -547,8 +651,17 @@ type relPackElem struct {
 }
 
 type relPoint struct {
-	t         uint64
+	t         int64
 	lat, long uint32
+}
+
+func tFromBytes(p []byte, dbits uint) int64 {
+	var v uint64
+	for _, b := range p {
+		v = (v << 8) | uint64(b)
+	}
+
+	return int64(v >> (2 * dbits))
 }
 
 func relFromBytes(p []byte, dbits uint) (t int64, lat, long int32) {
@@ -637,7 +750,7 @@ func (k *bitsPacker) add(pt Point) bool {
 	hasvalid := idx >= 0
 	if hasvalid {
 		k.idx = idx
-		k.pt = append(k.pt, relPoint{uint64(dt), dlat, dlong})
+		k.pt = append(k.pt, relPoint{dt, dlat, dlong})
 	}
 
 	return hasvalid
