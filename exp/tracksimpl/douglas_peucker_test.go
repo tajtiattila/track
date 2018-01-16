@@ -67,13 +67,15 @@ func BenchmarkEndPointFitWorstCase(b *testing.B) {
 		}
 	})
 	b.Log(len(x))
-	b.Run(fmt.Sprintf("win%d", win), func(b *testing.B) {
-		for i := 0; i < b.N; i++ {
-			x = tracksimpl.EndPointFit{
-				D:      dist,
-				Window: win,
-			}.Run(x[:0], trk)
-		}
-	})
-	b.Log(len(x))
+	for _, w := range []int{64, 256, 1024} {
+		b.Run(fmt.Sprintf("win%d", w), func(b *testing.B) {
+			for i := 0; i < b.N; i++ {
+				x = tracksimpl.EndPointFit{
+					D:      dist,
+					Window: w,
+				}.Run(x[:0], trk)
+			}
+		})
+		b.Log(w, ": ", len(x))
+	}
 }

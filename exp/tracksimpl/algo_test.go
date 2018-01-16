@@ -50,6 +50,12 @@ func init() {
 	algo("EndPointFit", func(d float64) tracksimpl.Algorithm {
 		return tracksimpl.EndPointFit{D: d}
 	})
+	algo("EndPointFit.4D", func(d float64) tracksimpl.Algorithm {
+		return tracksimpl.EndPointFit{D: d, Four: true}
+	})
+	algo("EndPointFit.256", func(d float64) tracksimpl.Algorithm {
+		return tracksimpl.EndPointFit{D: d, Window: 256}
+	})
 	algo("EndPointFit.1K", func(d float64) tracksimpl.Algorithm {
 		return tracksimpl.EndPointFit{D: d, Window: 1024}
 	})
@@ -78,7 +84,7 @@ func TestAlgos(t *testing.T) {
 
 	for _, a := range algos {
 		frac := float64(an[a.name]) / float64(n)
-		t.Logf(" %*s %.2f%%\n", -maxAlgoNameLen, a.name, 100*frac)
+		t.Logf(" %*s %.2f%% %d/%d\n", -maxAlgoNameLen, a.name, 100*frac, an[a.name], n)
 	}
 }
 
@@ -101,6 +107,8 @@ func BenchmarkAlgos(b *testing.B) {
 
 func compareResult(t testing.TB, base, result track.Track, name string, dist float64) {
 	times := testutil.TrackTimes(base)
+	var dmax, dsum float64
+	var n int
 	for tt := range times {
 		wlat, wlong := base.At(tt)
 		want := trackmath.Pt3(wlat, wlong)
@@ -111,5 +119,13 @@ func compareResult(t testing.TB, base, result track.Track, name string, dist flo
 			t.Errorf("%s: at %s got %.6f,%.6f want %.6f,%.6f (dist %f > %f)",
 				name, ts(tt), glat, glong, wlat, wlong, d, dist)
 		}
+
+		dsum += d
+		if d > dmax {
+			dmax = d
+		}
+		n++
 	}
+	davg := dsum / float64(n)
+	t.Logf("%s distance error: avg %.3f max %.3f", name, davg, dmax)
 }

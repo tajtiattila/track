@@ -22,7 +22,7 @@ func TrackTimes(trk track.Track) <-chan time.Time {
 		}
 
 		if !testing.Short() {
-			// all whole seconds
+			// whole seconds
 			stt := st.Truncate(time.Second)
 			ett := et.Truncate(time.Second).Add(time.Second)
 			for t := stt; !t.After(ett); t = t.Add(time.Second) {
