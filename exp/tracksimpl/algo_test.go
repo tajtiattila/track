@@ -50,8 +50,8 @@ func init() {
 	algo("EndPointFit", func(d float64) tracksimpl.Algorithm {
 		return tracksimpl.EndPointFit{D: d}
 	})
-	algo("EndPointFit.4D", func(d float64) tracksimpl.Algorithm {
-		return tracksimpl.EndPointFit{D: d, Four: true}
+	algo("EndPointFit.Adaptive", func(d float64) tracksimpl.Algorithm {
+		return tracksimpl.EndPointFit{D: d, Adaptive: true}
 	})
 	algo("EndPointFit.256", func(d float64) tracksimpl.Algorithm {
 		return tracksimpl.EndPointFit{D: d, Window: 256}

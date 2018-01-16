@@ -24,7 +24,9 @@ type EndPointFit struct {
 
 	Window int // maximum number of points to process at once
 
-	Four bool
+	Adaptive bool
+
+	maxDepth int
 }
 
 func (f EndPointFit) Run(dst, src track.Track) track.Track {
@@ -39,12 +41,20 @@ func (f EndPointFit) Run(dst, src track.Track) track.Track {
 		f.Window = n
 	}
 
-	return append(f.run(dst, src), last)
+	if f.Adaptive {
+		f.maxDepth = 1
+		for m := 1; m < n; m *= 2 {
+			f.maxDepth++
+		}
+		f.maxDepth *= 2
+	}
+
+	return append(f.run(0, dst, src), last)
 }
 
 // run performs the iterative end-point fit algorithm,
 // but does not append the last point of src to dst.
-func (f EndPointFit) run(dst, src track.Track) track.Track {
+func (f EndPointFit) run(depth int, dst, src track.Track) track.Track {
 	n := len(src) - 1
 	if n < 2 {
 		return append(dst, src[:n]...)
@@ -59,11 +69,6 @@ func (f EndPointFit) run(dst, src track.Track) track.Track {
 	}
 	v := b3.Sub(a3).Muls(1 / dt) // meters/nanosecond
 
-	a4 := pt4(a3, a.Time())
-	b4 := pt4(b3, b.Time())
-	l := l4(a4, b4)
-	done := true
-
 	imax := 1
 	var dmax float64
 	for i := 1; i < n; i++ {
@@ -73,44 +78,39 @@ func (f EndPointFit) run(dst, src track.Track) track.Track {
 		dt = float64(p.Time().Sub(a.Time()))
 		q3 := a3.Add(v.Muls(dt))
 
-		if f.Four {
-			if d := l.distsq(pt4(p3, p.Time())); d > dmax {
-				imax, dmax = i, d
-			}
-			done = done && dist3sq(p3, q3) <= f.D*f.D
-		} else {
-			if d := dist3sq(p3, q3); d > dmax {
-				imax, dmax = i, d
-			}
+		if d := dist3sq(p3, q3); d > dmax {
+			imax, dmax = i, d
 		}
 	}
 
-	if f.Four {
-		if done {
-			return append(dst, a)
-		}
-	} else {
-		if dmax <= f.D*f.D {
-			return append(dst, a)
-		}
+	if dmax <= f.D*f.D {
+		return append(dst, a)
 	}
 
-	if n >= f.Window {
+	const adaptiveWin = 32
+
+	var o int
+	if f.Adaptive && n > adaptiveWin && depth > f.maxDepth {
+		o = n / 4
+	} else if n >= f.Window {
+		o = f.Window / 4
+	}
+
+	if o != 0 {
 		m := n / 2
-		dw := f.Window / 4
-		if imax < dw {
-			dst = f.run(dst, src[:imax+1])
-			dst = f.run(dst, src[imax:m+1])
-			return f.run(dst, src[m:])
-		} else if imax+dw > n {
-			dst = f.run(dst, src[:m+1])
-			dst = f.run(dst, src[m:imax+1])
-			return f.run(dst, src[imax:])
+		if imax < o {
+			dst = f.run(depth+1, dst, src[:imax+1])
+			dst = f.run(depth+1, dst, src[imax:m+1])
+			return f.run(depth+1, dst, src[m:])
+		} else if imax+o > n {
+			dst = f.run(depth+1, dst, src[:m+1])
+			dst = f.run(depth+1, dst, src[m:imax+1])
+			return f.run(depth+1, dst, src[imax:])
 		}
 	}
 
-	dst = f.run(dst, src[:imax+1])
-	return f.run(dst, src[imax:])
+	dst = f.run(depth+1, dst, src[:imax+1])
+	return f.run(depth+1, dst, src[imax:])
 }
 
 type point4 [4]float64

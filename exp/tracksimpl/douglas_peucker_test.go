@@ -59,7 +59,7 @@ func BenchmarkEndPointFitWorstCase(b *testing.B) {
 	const win = 1024
 	trk := entPointFitWorstCase(10*win, dist)
 	x := make(track.Track, len(trk))
-	b.Run("nowin", func(b *testing.B) {
+	b.Run("full", func(b *testing.B) {
 		for i := 0; i < b.N; i++ {
 			x = tracksimpl.EndPointFit{
 				D: dist,
@@ -67,6 +67,17 @@ func BenchmarkEndPointFitWorstCase(b *testing.B) {
 		}
 	})
 	b.Log(len(x))
+
+	b.Run("adaptive", func(b *testing.B) {
+		for i := 0; i < b.N; i++ {
+			x = tracksimpl.EndPointFit{
+				D:        dist,
+				Adaptive: true,
+			}.Run(x[:0], trk)
+		}
+	})
+	b.Log(len(x))
+
 	for _, w := range []int{64, 256, 1024} {
 		b.Run(fmt.Sprintf("win%d", w), func(b *testing.B) {
 			for i := 0; i < b.N; i++ {
