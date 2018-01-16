@@ -47,7 +47,7 @@ func (g *trkgen) m(xy ...float64) {
 	}
 }
 
-func TestStillFilter(t *testing.T) {
+func TestRadialDistance(t *testing.T) {
 	var origins = []struct {
 		lat, long float64
 	}{
@@ -72,7 +72,7 @@ func TestStillFilter(t *testing.T) {
 
 		g.m(0, 100)
 
-		dst := tracksimpl.Run(nil, g.trk, tracksimpl.StillFilter(5))
+		dst := tracksimpl.Run(nil, g.trk, tracksimpl.RadialDistance{5})
 		if len(dst) != 4 {
 			t.Errorf("got length %v, want 4", len(dst))
 		} else {
