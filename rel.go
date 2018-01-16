@@ -12,8 +12,8 @@ import (
 	"github.com/tajtiattila/track/internal/trackmath"
 )
 
-func Pack(trk Track, tacc, dacc, baz int) (Packed, error) {
-	r := NewPacker()
+func Pack(trk Track, tacc, dacc int) (Packed, error) {
+	r := NewPackerAccuracy(tacc, dacc)
 	for _, p := range trk {
 		r.Add(p)
 	}
@@ -34,10 +34,14 @@ type Packer struct {
 const packWindow = 512
 
 func NewPacker() *Packer {
+	return NewPackerAccuracy(100, 10)
+}
+
+func NewPackerAccuracy(tacc, dacc int) *Packer {
 	k := &Packer{
 		work: make([]Point, 0, packWindow),
 		pk: Packed{
-			acc: ptAcc{tacc: 100, dacc: 10},
+			acc: ptAcc{tacc: int64(tacc), dacc: int32(dacc)},
 		},
 	}
 

@@ -5,16 +5,15 @@ import (
 	"testing"
 
 	"github.com/tajtiattila/track"
+	"github.com/tajtiattila/track/internal/testutil"
 )
 
-const testpklen = 1024
-
 func TestPackedUnpack(t *testing.T) {
-	for _, f := range Files {
-		t.Logf("testing %s\n", f.path)
-		trk := f.track(t)
+	for _, f := range testutil.Files(t) {
+		t.Log(f.Path())
+		trk := f.Track(t)
 
-		pk, _ := track.Pack(trk, 1, 1, testpklen)
+		pk, _ := track.Pack(trk, 1, 1)
 
 		xtrk := pk.Unpack(nil)
 
@@ -25,15 +24,15 @@ func TestPackedUnpack(t *testing.T) {
 }
 
 func TestPackedLookup(t *testing.T) {
-	for _, f := range Files {
-		t.Logf("testing %s\n", f.path)
-		trk := f.track(t)
+	for _, f := range testutil.Files(t) {
+		t.Log(f.Path())
+		trk := f.Track(t)
 
 		t.Logf(" start: %s", trk.StartTime())
 		t.Logf(" end: %s", trk.EndTime())
-		pk, _ := track.Pack(trk, 1, 1, testpklen)
+		pk, _ := track.Pack(trk, 1, 1)
 
-		for _, tt := range trackTestTimes(trk) {
+		for _, tt := range testutil.TrackTimes(trk) {
 			glat, glong := pk.At(tt)
 			wlat, wlong := trk.At(tt)
 			dlat := math.Abs(wlat - glat)

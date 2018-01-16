@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/tajtiattila/track"
+	"github.com/tajtiattila/track/internal/testutil"
 )
 
 func TestLookup(t *testing.T) {
@@ -104,19 +105,25 @@ func TestLookup(t *testing.T) {
 }
 
 func BenchmarkLookup(b *testing.B) {
-	for _, f := range Files {
-		b.Logf("testing %s\n", f)
-		trk := f.track(b)
+	for _, f := range testutil.Files(b) {
+		trk := f.Track(b)
 
-		times := trackTestTimes(trk)
+		times := testutil.TrackTimes(trk)
 
 		b.Run(fmt.Sprintf("%s", f), func(b *testing.B) { atTimes(b, trk, times) })
 
-		for _, l := range []int{128, 256, 512, 1024, 2048} {
-			pk, _ := track.Pack(trk, 1, 1, l)
-			b.Run(fmt.Sprintf("%s pack%d", f, l),
-				func(b *testing.B) { atTimes(b, pk, times) })
-		}
+		pk, _ := track.Pack(trk, 1, 1)
+		b.Run(fmt.Sprintf("%s pack", f), func(b *testing.B) { atTimes(b, pk, times) })
+
+		qk, _ := track.Pack(trk, 100, 10)
+
+		ts := trk.Memsize()
+		ps := pk.Memsize()
+		qs := qk.Memsize()
+		b.Logf("  %d points %s\n  packed(1,1) %s %.2f%%\n  packed(100,10) %s %.2f%%\n",
+			len(trk), humanSize(ts),
+			humanSize(ps), float64(ps)/float64(ts)*100,
+			humanSize(qs), float64(qs)/float64(ts)*100)
 	}
 }
 
