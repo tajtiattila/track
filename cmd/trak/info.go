@@ -118,21 +118,35 @@ func (i *InfoCmd) stillAnalyze(trk track.Track) {
 
 	x := make(track.Track, len(trk))
 
-	x = tracksimpl.RadialDistance{D: i.maxd}.Run(x[:0], trk)
-	showResult(trk, " still filter", len(x))
+	showResultTime(trk, " radial distance", func() track.Track {
+		return tracksimpl.RadialDistance{D: i.maxd}.Run(x[:0], trk)
+	})
 
-	x = tracksimpl.ShiftSegment{D: i.maxd}.Run(x[:0], trk)
-	showResult(trk, " reumann-witkam", len(x))
+	showResultTime(trk, " reumann-witkam", func() track.Track {
+		return tracksimpl.ShiftSegment{D: i.maxd}.Run(x[:0], trk)
+	})
 
-	x = tracksimpl.EndPointFit{D: i.maxd}.Run(x[:0], trk)
-	showResult(trk, " end-point fit", len(x))
+	showResultTime(trk, " simplified", func() track.Track {
+		return tracksimpl.Run(x[:0], trk, tracksimpl.ShiftSegment{D: i.maxd}, tracksimpl.RadialDistance{D: i.maxd})
+	})
 
-	x = tracksimpl.Run(x[:0], trk, tracksimpl.ShiftSegment{D: i.maxd}, tracksimpl.RadialDistance{D: i.maxd})
-	showResult(trk, " simplified", len(x))
+	showResultTime(trk, " end-point fit", func() track.Track {
+		return tracksimpl.EndPointFit{D: i.maxd}.Run(x[:0], trk)
+	})
+
 }
 
 func showResult(trk track.Track, pfx string, nkeep int) {
 	ndrop := len(trk) - nkeep
 	perc := float64(ndrop) / float64(len(trk)) * 100
 	fmt.Printf("%s: %5.2f%% (%d points) dropped\n", pfx, perc, ndrop)
+}
+
+func showResultTime(trk track.Track, pfx string, f func() track.Track) {
+	t0 := time.Now()
+	x := f()
+	dt := time.Now().Sub(t0)
+	ndrop := len(trk) - len(x)
+	perc := float64(ndrop) / float64(len(trk)) * 100
+	fmt.Printf("%s: %5.2f%% (%d points) dropped; took %s\n", pfx, perc, ndrop, dt)
 }
