@@ -116,13 +116,18 @@ func (i *InfoCmd) stillAnalyze(trk track.Track) {
 		return
 	}
 
-	x := tracksimpl.Run(nil, trk, tracksimpl.StillFilter(i.maxd))
+	x := make(track.Track, len(trk))
+
+	x = tracksimpl.RadialDistance{D: i.maxd}.Run(x[:0], trk)
 	showResult(trk, " still filter", len(x))
 
-	x = tracksimpl.Run(nil, trk, tracksimpl.ReumannWitkam(i.maxd))
+	x = tracksimpl.ShiftSegment{D: i.maxd}.Run(x[:0], trk)
 	showResult(trk, " reumann-witkam", len(x))
 
-	x = tracksimpl.Run(nil, trk, tracksimpl.ReumannWitkam(i.maxd), tracksimpl.StillFilter(i.maxd))
+	x = tracksimpl.EndPointFit{D: i.maxd}.Run(x[:0], trk)
+	showResult(trk, " end-point fit", len(x))
+
+	x = tracksimpl.Run(x[:0], trk, tracksimpl.ShiftSegment{D: i.maxd}, tracksimpl.RadialDistance{D: i.maxd})
 	showResult(trk, " simplified", len(x))
 }
 
