@@ -6,6 +6,7 @@ import (
 	"io"
 	"os"
 	"time"
+	"unsafe"
 
 	"github.com/tajtiattila/cmdmain"
 	"github.com/tajtiattila/track"
@@ -73,6 +74,7 @@ func (i *InfoCmd) trackInfo(fn string) {
 	if len(trk) != 0 {
 		fmt.Printf(" start: %s\n", trk[0].Time())
 		fmt.Printf(" end: %s\n", trk[len(trk)-1].Time())
+		memSize(trk, " ")
 		i.stillAnalyze(trk)
 		if i.freq {
 			freqAnalyze(trk)
@@ -133,7 +135,11 @@ func (i *InfoCmd) stillAnalyze(trk track.Track) {
 	showResultTime(trk, " end-point fit", func() track.Track {
 		return tracksimpl.EndPointFit{D: i.maxd}.Run(x[:0], trk)
 	})
+}
 
+func memSize(trk track.Track, pfx string) {
+	n := uintptr(len(trk)) * unsafe.Sizeof(track.Point{})
+	fmt.Printf("%smemsize: %.2fM\n", pfx, float64(n)/1e6)
 }
 
 func showResult(trk track.Track, pfx string, nkeep int) {
@@ -149,4 +155,5 @@ func showResultTime(trk track.Track, pfx string, f func() track.Track) {
 	ndrop := len(trk) - len(x)
 	perc := float64(ndrop) / float64(len(trk)) * 100
 	fmt.Printf("%s: %5.2f%% (%d points) dropped; took %s\n", pfx, perc, ndrop, dt)
+	memSize(x, " ")
 }

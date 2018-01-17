@@ -1,10 +1,12 @@
 package track_test
 
 import (
+	"fmt"
 	"testing"
 	"time"
 
 	"github.com/tajtiattila/track"
+	"github.com/tajtiattila/track/internal/testutil"
 )
 
 func TestLookup(t *testing.T) {
@@ -98,6 +100,41 @@ func TestLookup(t *testing.T) {
 			t.Errorf("%s got (%.7f,%.7f) want (%.7f,%.7f)", tt.what,
 				glat, glong,
 				tt.wlat, tt.wlong)
+		}
+	}
+}
+
+func BenchmarkLookup(b *testing.B) {
+	for _, f := range testutil.Files(b) {
+		trk := f.Track(b)
+
+		times := testutil.TrackTimes(trk)
+
+		b.Run(fmt.Sprintf("%s", f), func(b *testing.B) { atTimes(b, trk, times) })
+
+		pk, _ := track.Pack(trk, 1, 1)
+		b.Run(fmt.Sprintf("%s pack", f), func(b *testing.B) { atTimes(b, pk, times) })
+
+		qk, _ := track.Pack(trk, 100, 10)
+
+		ts := trk.Memsize()
+		ps := pk.Memsize()
+		qs := qk.Memsize()
+		b.Logf("  %d points %s\n  packed(1,1) %s %.2f%%\n  packed(100,10) %s %.2f%%\n",
+			len(trk), humanSize(ts),
+			humanSize(ps), float64(ps)/float64(ts)*100,
+			humanSize(qs), float64(qs)/float64(ts)*100)
+	}
+}
+
+type atter interface {
+	At(t time.Time) (lat, long float64)
+}
+
+func atTimes(b *testing.B, trk atter, times []time.Time) {
+	for i := 0; i < b.N; i++ {
+		for _, tt := range times {
+			trk.At(tt)
 		}
 	}
 }

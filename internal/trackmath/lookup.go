@@ -24,7 +24,13 @@ func Lookup(trk Track, t time.Time) (lat, long float64) {
 
 	pt, plat, plong := trk.Pt(i - 1)
 	qt, qlat, qlong := trk.Pt(i)
+	return Interpolate(t, pt, plat, plong, qt, qlat, qlong)
+}
 
+func Interpolate(t time.Time,
+	pt time.Time, plat, plong float64,
+	qt time.Time, qlat, qlong float64,
+) (lat, long float64) {
 	pd := float64(t.Sub(pt))
 	qd := float64(qt.Sub(t))
 	m := pd + qd
