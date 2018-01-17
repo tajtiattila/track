@@ -50,15 +50,6 @@ func init() {
 	algo("EndPointFit", func(d float64) tracksimpl.Algorithm {
 		return tracksimpl.EndPointFit{D: d}
 	})
-	algo("EndPointFit.Adaptive", func(d float64) tracksimpl.Algorithm {
-		return tracksimpl.EndPointFit{D: d, Adaptive: true}
-	})
-	algo("EndPointFit.256", func(d float64) tracksimpl.Algorithm {
-		return tracksimpl.EndPointFit{D: d, Window: 256}
-	})
-	algo("EndPointFit.1K", func(d float64) tracksimpl.Algorithm {
-		return tracksimpl.EndPointFit{D: d, Window: 1024}
-	})
 }
 
 func TestAlgos(t *testing.T) {

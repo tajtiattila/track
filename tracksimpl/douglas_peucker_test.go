@@ -1,12 +1,10 @@
 package tracksimpl_test
 
 import (
-	"fmt"
 	"testing"
 	"time"
 
 	"github.com/tajtiattila/track"
-	"github.com/tajtiattila/track/internal/testutil"
 	"github.com/tajtiattila/track/tracksimpl"
 )
 
@@ -36,33 +34,15 @@ func entPointFitWorstCase(n int, d float64) track.Track {
 	return trk
 }
 
-func TestEndPointFitWindow(t *testing.T) {
-	for _, f := range testutil.Files(t) {
-		trk := f.Track(t)
-
-		n := len(trk)
-
-		const dist = 5
-		for w := n - 2; w <= n+2; w++ {
-			x := tracksimpl.EndPointFit{
-				D:      dist,
-				Window: w,
-			}.Run(nil, trk)
-
-			compareResult(t, trk, x, fmt.Sprint("Window=", w), dist)
-		}
-	}
-}
-
 func BenchmarkEndPointFitWorstCase(b *testing.B) {
 	const dist = 5
-	const win = 1024
-	trk := entPointFitWorstCase(10*win, dist)
+	trk := entPointFitWorstCase(10*1024, dist)
 	x := make(track.Track, len(trk))
 	b.Run("full", func(b *testing.B) {
 		for i := 0; i < b.N; i++ {
 			x = tracksimpl.EndPointFit{
-				D: dist,
+				D:    dist,
+				Full: true,
 			}.Run(x[:0], trk)
 		}
 	})
@@ -71,22 +51,9 @@ func BenchmarkEndPointFitWorstCase(b *testing.B) {
 	b.Run("adaptive", func(b *testing.B) {
 		for i := 0; i < b.N; i++ {
 			x = tracksimpl.EndPointFit{
-				D:        dist,
-				Adaptive: true,
+				D: dist,
 			}.Run(x[:0], trk)
 		}
 	})
 	b.Log(len(x))
-
-	for _, w := range []int{64, 256, 1024} {
-		b.Run(fmt.Sprintf("win%d", w), func(b *testing.B) {
-			for i := 0; i < b.N; i++ {
-				x = tracksimpl.EndPointFit{
-					D:      dist,
-					Window: w,
-				}.Run(x[:0], trk)
-			}
-		})
-		b.Log(w, ": ", len(x))
-	}
 }
