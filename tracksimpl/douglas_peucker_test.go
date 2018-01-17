@@ -6,8 +6,8 @@ import (
 	"time"
 
 	"github.com/tajtiattila/track"
-	"github.com/tajtiattila/track/exp/tracksimpl"
 	"github.com/tajtiattila/track/internal/testutil"
+	"github.com/tajtiattila/track/tracksimpl"
 )
 
 func entPointFitWorstCase(n int, d float64) track.Track {
