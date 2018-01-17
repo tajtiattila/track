@@ -50,6 +50,9 @@ func init() {
 	algo("EndPointFit", func(d float64) tracksimpl.Algorithm {
 		return tracksimpl.EndPointFit{D: d}
 	})
+	algo("EndPointFit.Parallel", func(d float64) tracksimpl.Algorithm {
+		return tracksimpl.EndPointFit{D: d, Parallel: true}
+	})
 }
 
 func TestAlgos(t *testing.T) {
