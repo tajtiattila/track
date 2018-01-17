@@ -1,30 +1,22 @@
 package tracksimpl
 
 import (
-	"time"
-
 	"github.com/tajtiattila/track"
-	"github.com/tajtiattila/track/internal/trackmath"
 )
 
-// EndPointFit implements
+// EndPointFit implements a variant of
 // the Ramer–Douglas–Peucker iterative end-point fit algorithm,
 // also known as the Douglas–Peucker algorithm
-// using D as the maximum distance.
+// that provides an excellent approximation of the original track.
 //
-// When Window is not zero, the algorithm is executed only
-// at most on the specified number of points. This should
-// improve worst case performance at the expense of slightly
-// less efficient result tracks.
+// The algorithm is modified to avoid the worst case complexity.
 //
-// It provides good results but has an average comlexity of O(n·log n)
-// and a worst case complexity of O(n²).
+// It provides good results but has an average comlexity of O(n·log n).
+// If Full is specified, it has a worst case complexity of O(n²).
 type EndPointFit struct {
-	D float64 // maximum distance in meters
+	D float64 // maximum error distance in meters
 
-	Window int // maximum number of points to process at once
-
-	Adaptive bool
+	Full bool // run full algorithm
 
 	maxDepth int
 }
@@ -37,17 +29,11 @@ func (f EndPointFit) Run(dst, src track.Track) track.Track {
 
 	last := src[n-1]
 
-	if f.Window <= 16 {
-		f.Window = n
+	f.maxDepth = 1
+	for m := 1; m < n; m *= 2 {
+		f.maxDepth++
 	}
-
-	if f.Adaptive {
-		f.maxDepth = 1
-		for m := 1; m < n; m *= 2 {
-			f.maxDepth++
-		}
-		f.maxDepth *= 2
-	}
+	f.maxDepth *= 2
 
 	return append(f.run(0, dst, src), last)
 }
@@ -89,14 +75,8 @@ func (f EndPointFit) run(depth int, dst, src track.Track) track.Track {
 
 	const adaptiveWin = 32
 
-	var o int
-	if f.Adaptive && n > adaptiveWin && depth > f.maxDepth {
-		o = n / 4
-	} else if n >= f.Window {
-		o = f.Window / 4
-	}
-
-	if o != 0 {
+	if !f.Full && n > adaptiveWin && depth > f.maxDepth {
+		o := n / 4
 		m := n / 2
 		if imax < o {
 			dst = f.run(depth+1, dst, src[:imax+1])
@@ -111,75 +91,4 @@ func (f EndPointFit) run(depth int, dst, src track.Track) track.Track {
 
 	dst = f.run(depth+1, dst, src[:imax+1])
 	return f.run(depth+1, dst, src[imax:])
-}
-
-type point4 [4]float64
-
-func pt4(p trackmath.Point3, t time.Time) point4 {
-	tv := float64(t.UnixNano()/1e6) / 1e3
-	return point4{p[0], p[1], p[2], tv}
-}
-
-func (a point4) Add(b point4) point4 {
-	return point4{
-		a[0] + b[0],
-		a[1] + b[1],
-		a[2] + b[2],
-		a[3] + b[3],
-	}
-}
-
-func (a point4) Sub(b point4) point4 {
-	return point4{
-		a[0] - b[0],
-		a[1] - b[1],
-		a[2] - b[2],
-		a[3] - b[3],
-	}
-}
-
-func (a point4) Mul(s float64) point4 {
-	return point4{
-		a[0] * s,
-		a[1] * s,
-		a[2] * s,
-		a[3] * s,
-	}
-}
-
-func (a point4) Dot(b point4) float64 {
-	return (a[0]*b[0] +
-		a[1]*b[1] +
-		a[2]*b[2] +
-		a[3]*b[3])
-}
-
-type line4 struct {
-	a, b point4
-	v    point4 // a→b vector
-}
-
-func l4(a, b point4) line4 {
-	v := b.Sub(a)
-	vv := v.Dot(v)
-	return line4{
-		a: a,
-		v: v.Mul(1 / vv),
-	}
-}
-
-func (l *line4) distsq(p point4) float64 {
-	w := p.Sub(l.a)
-	c := l.v.Dot(w)
-	var q point4
-	switch {
-	case c <= 0:
-		q = w
-	case 1 <= c:
-		q = p.Sub(l.b)
-	default:
-		lp := l.a.Add(l.v.Mul(c))
-		q = p.Sub(lp)
-	}
-	return q.Dot(q)
 }
