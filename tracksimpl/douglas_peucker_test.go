@@ -56,14 +56,4 @@ func BenchmarkEndPointFitWorstCase(b *testing.B) {
 		}
 	})
 	b.Log(len(x))
-
-	b.Run("parallel", func(b *testing.B) {
-		for i := 0; i < b.N; i++ {
-			x = tracksimpl.EndPointFit{
-				D:        dist,
-				Parallel: true,
-			}.Run(x[:0], trk)
-		}
-	})
-	b.Log(len(x))
 }

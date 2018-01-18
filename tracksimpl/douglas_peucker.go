@@ -20,8 +20,6 @@ type EndPointFit struct {
 	// to reduce memory use and improve performance.
 	// If Full is true, the recursion depth limiter is turned off.
 	Full bool
-
-	Parallel bool
 }
 
 const parallelWin = 64
@@ -47,8 +45,9 @@ func (x EndPointFit) Run(dst, src track.Track) track.Track {
 		f.maxDepth *= 2 // arbitrary
 	}
 
-	if x.Parallel && n > parallelWin {
-		return append(f.runParallel(0, dst, src), last)
+	if n <= parallelWin {
+		// avoid gorouting/channel setup
+		return append(f.step(0, dst, src), last)
 	}
 
 	return append(f.run(0, dst, src), last)
@@ -63,9 +62,9 @@ type epf struct {
 	ch  chan work
 }
 
-// run performs the iterative end-point fit algorithm,
+// step performs the iterative end-point fit algorithm recursively,
 // but does not append the last point of src to dst.
-func (f *epf) run(depth int, dst, src track.Track) track.Track {
+func (f *epf) step(depth int, dst, src track.Track) track.Track {
 	i, res := f.findSplit(src)
 
 	if i < 0 {
@@ -82,18 +81,18 @@ func (f *epf) run(depth int, dst, src track.Track) track.Track {
 		o := n / 4
 		m := n / 2
 		if i < o {
-			dst = f.run(depth, dst, src[:i+1])
-			dst = f.run(depth, dst, src[i:m+1])
-			return f.run(depth, dst, src[m:])
+			dst = f.step(depth, dst, src[:i+1])
+			dst = f.step(depth, dst, src[i:m+1])
+			return f.step(depth, dst, src[m:])
 		} else if i+o > n {
-			dst = f.run(depth, dst, src[:m+1])
-			dst = f.run(depth, dst, src[m:i+1])
-			return f.run(depth, dst, src[i:])
+			dst = f.step(depth, dst, src[:m+1])
+			dst = f.step(depth, dst, src[m:i+1])
+			return f.step(depth, dst, src[i:])
 		}
 	}
 
-	dst = f.run(depth, dst, src[:i+1])
-	return f.run(depth, dst, src[i:])
+	dst = f.step(depth, dst, src[:i+1])
+	return f.step(depth, dst, src[i:])
 }
 
 // findSplit finds the optimal split point i in src.
@@ -141,43 +140,62 @@ type work struct {
 	result track.Track
 }
 
-func (f *epf) runParallel(depth int, dst, src track.Track) track.Track {
-	f.buf = make(track.Track, len(src))
+// run runs the iterative end-point fit algorithm
+// using goroutines and assembles the result.
+func (f *epf) run(depth int, dst, src track.Track) track.Track {
 	f.ch = make(chan work, 16)
 
 	n := len(src) - 1
 
 	go func() {
-		f.maybeParallel(depth, src, 0, n)
+		f.bigStep(depth, src, 0, n)
 	}()
 
 	wh := make(workHeap, 0, n*4/parallelWin)
 	h := heap.Interface(&wh)
 
+	var ndst int
+	parts := make([]track.Track, 0, n*4/parallelWin)
+
 	ofs := 0
 	for ofs < n {
 		w := <-f.ch
 		if w.first == ofs {
-			dst = append(dst, w.result...)
 			ofs = w.last
+			parts = append(parts, w.result)
+			ndst += len(w.result)
+
 			for len(wh) > 0 && wh[0].first == ofs {
 				w = wh[0]
 				heap.Pop(h)
 
-				dst = append(dst, w.result...)
 				ofs = w.last
+				parts = append(parts, w.result)
+				ndst += len(w.result)
 			}
 		} else {
 			heap.Push(h, w)
 		}
 	}
+
+	if cap(dst)-len(dst) < ndst+1 {
+		x := make(track.Track, len(dst), len(dst)+ndst+1)
+		copy(x, dst)
+		dst = x
+	}
+	for _, p := range parts {
+		dst = append(dst, p...)
+	}
+
 	return dst
 }
 
-func (f *epf) maybeParallel(depth int, src track.Track, first, last int) {
+// bigStep runs the iterative end-point fit algorithm
+// on src[first:last+1] recursively, putting results in f.ch.
+// If executes splits using goroutines.
+func (f *epf) bigStep(depth int, src track.Track, first, last int) {
 	if last-first < parallelWin || depth > f.maxDepth {
-		buf := f.buf[first:][:0]
-		buf = f.run(depth, buf, src[first:last+1])
+		buf := f.step(depth, nil, src[first:last+1])
 		f.ch <- work{
 			first:  first,
 			last:   last,
@@ -198,8 +216,8 @@ func (f *epf) maybeParallel(depth int, src track.Track, first, last int) {
 		i += first
 		depth++
 
-		go f.maybeParallel(depth, src, first, i)
-		f.maybeParallel(depth, src, i, last)
+		go f.bigStep(depth, src, first, i)
+		f.bigStep(depth, src, i, last)
 	}
 }
 
