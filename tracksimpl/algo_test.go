@@ -38,6 +38,12 @@ func init() {
 		}
 	}
 
+	algo("EndPointFit", func(d float64) tracksimpl.Algorithm {
+		return tracksimpl.EndPointFit{D: d}
+	})
+	algo("EndPointFit.Parallel", func(d float64) tracksimpl.Algorithm {
+		return tracksimpl.EndPointFit{D: d, Parallel: true}
+	})
 	algo("RadialDistance", func(d float64) tracksimpl.Algorithm {
 		return tracksimpl.RadialDistance{D: d}
 	})
@@ -46,12 +52,6 @@ func init() {
 	})
 	algo("ShiftSegment.Strict", func(d float64) tracksimpl.Algorithm {
 		return tracksimpl.ShiftSegment{D: d, Strict: true}
-	})
-	algo("EndPointFit", func(d float64) tracksimpl.Algorithm {
-		return tracksimpl.EndPointFit{D: d}
-	})
-	algo("EndPointFit.Parallel", func(d float64) tracksimpl.Algorithm {
-		return tracksimpl.EndPointFit{D: d, Parallel: true}
 	})
 }
 
