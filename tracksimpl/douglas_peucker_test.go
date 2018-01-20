@@ -34,6 +34,25 @@ func entPointFitWorstCase(n int, d float64) track.Track {
 	return trk
 }
 
+func TestEndPointFitWorstCase(t *testing.T) {
+	const dist = 5
+	trk := entPointFitWorstCase(10*1024, dist)
+	full := tracksimpl.EndPointFit{
+		D:    dist,
+		Full: true,
+	}.Run(nil, trk)
+	if len(full) != len(trk) {
+		t.Errorf("full: got length %d, want %d", len(full), len(trk))
+	}
+
+	a := tracksimpl.EndPointFit{
+		D: dist,
+	}.Run(nil, trk)
+	if len(a) != len(trk) {
+		t.Errorf("adaptive: got length %d, want %d", len(a), len(trk))
+	}
+}
+
 func BenchmarkEndPointFitWorstCase(b *testing.B) {
 	const dist = 5
 	trk := entPointFitWorstCase(10*1024, dist)
