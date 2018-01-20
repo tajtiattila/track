@@ -14,14 +14,16 @@ import (
 )
 
 type InfoCmd struct {
-	freq bool
-	maxd float64
+	freq  bool
+	round time.Duration
+	maxd  float64
 }
 
 func init() {
 	cmdmain.Register("info", func(flags *flag.FlagSet) cmdmain.Command {
 		c := new(InfoCmd)
 		flags.BoolVar(&c.freq, "freq", false, "frequency analysis")
+		flags.DurationVar(&c.round, "round", 0, "round times (0: off)")
 		flags.Float64Var(&c.maxd, "maxd", 0, "run track simplification test with maxd in meters (0: off)")
 		return c
 	})
@@ -73,7 +75,7 @@ func (i *InfoCmd) trackInfo(fn string) {
 	if len(trk) != 0 {
 		fmt.Printf(" start: %s\n", trk[0].Time())
 		fmt.Printf(" end: %s\n", trk[len(trk)-1].Time())
-		i.stillAnalyze(trk)
+		i.distAnalyze(trk)
 		if i.freq {
 			freqAnalyze(trk)
 		}
@@ -111,22 +113,25 @@ func freqAnalyze(trk track.Track) {
 	}
 }
 
-func (i *InfoCmd) stillAnalyze(trk track.Track) {
+func (i *InfoCmd) distAnalyze(trk0 track.Track) {
+	trk := tracksimpl.RoundTime{i.round}.Run(nil, trk0)
+	fmt.Printf(" times rounded to %v: %d\n", i.round, len(trk))
+
 	if i.maxd <= 0 {
 		return
 	}
 
 	x := make(track.Track, len(trk))
 
-	showResultTime(trk, " radial distance", func() track.Track {
+	showResultTime(trk0, " radial distance", func() track.Track {
 		return tracksimpl.RadialDistance{D: i.maxd}.Run(x[:0], trk)
 	})
 
-	showResultTime(trk, " reumann-witkam", func() track.Track {
+	showResultTime(trk0, " reumann-witkam", func() track.Track {
 		return tracksimpl.ShiftSegment{D: i.maxd}.Run(x[:0], trk)
 	})
 
-	showResultTime(trk, " simplified", func() track.Track {
+	showResultTime(trk0, " simplified", func() track.Track {
 		return tracksimpl.Run(x[:0], trk, tracksimpl.ShiftSegment{D: i.maxd}, tracksimpl.RadialDistance{D: i.maxd})
 	})
 
