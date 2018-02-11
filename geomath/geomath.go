@@ -1,4 +1,5 @@
-package trackmath
+// Package geomath provides geographical math utilities.
+package geomath
 
 import (
 	"math"

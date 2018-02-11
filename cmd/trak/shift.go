@@ -7,7 +7,7 @@ import (
 
 	"github.com/tajtiattila/cmdmain"
 	"github.com/tajtiattila/track"
-	"github.com/tajtiattila/track/internal/trackmath"
+	"github.com/tajtiattila/track/geomath"
 )
 
 type ShiftCmd struct {
@@ -72,7 +72,7 @@ func (c *ShiftCmd) shift(lat, long float64, orgt time.Time, trk track.Track) err
 		return fmt.Errorf("empty track segment")
 	}
 
-	p3 := trackmath.Pt3(lat, long)
+	p3 := geomath.Pt3(lat, long)
 
 	a := trk[0]
 	a3 := pt3(a)
@@ -113,7 +113,7 @@ func (c *ShiftCmd) shift(lat, long float64, orgt time.Time, trk track.Track) err
 	return nil
 }
 
-func segpt(p, p0, p1 trackmath.Point3) (dist, rel float64) {
+func segpt(p, p0, p1 geomath.Point3) (dist, rel float64) {
 	v := p1.Sub(p0)
 	w := p.Sub(p0)
 

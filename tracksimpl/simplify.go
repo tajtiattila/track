@@ -14,7 +14,7 @@ package tracksimpl
 
 import (
 	"github.com/tajtiattila/track"
-	"github.com/tajtiattila/track/internal/trackmath"
+	"github.com/tajtiattila/track/geomath"
 )
 
 // Algorithm is a track simplification algorithm.
@@ -34,11 +34,11 @@ func Run(dst, src track.Track, algo ...Algorithm) track.Track {
 	return dst
 }
 
-func pt3(p track.Point) trackmath.Point3 {
-	return trackmath.Pt3(p.Lat(), p.Long())
+func pt3(p track.Point) geomath.Point3 {
+	return geomath.Pt3(p.Lat(), p.Long())
 }
 
-func dist3sq(a, b trackmath.Point3) float64 {
+func dist3sq(a, b geomath.Point3) float64 {
 	d := a.Sub(b)
 	return d.Dot(d)
 }

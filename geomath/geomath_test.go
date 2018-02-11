@@ -1,10 +1,10 @@
-package trackmath_test
+package geomath_test
 
 import (
 	"math"
 	"testing"
 
-	"github.com/tajtiattila/track/internal/trackmath"
+	"github.com/tajtiattila/track/geomath"
 )
 
 func TestConv(t *testing.T) {
@@ -18,8 +18,8 @@ func TestConv(t *testing.T) {
 		for x := -165; x < 180; x += 40 {
 			lat := float64(y)
 			long := float64(x)
-			p3 := trackmath.Pt3(lat, long)
-			if !same(p3.Mag(), trackmath.EarthRadius) {
+			p3 := geomath.Pt3(lat, long)
+			if !same(p3.Mag(), geomath.EarthRadius) {
 				t.Error("Point3 math invalid")
 			}
 

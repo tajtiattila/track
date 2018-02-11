@@ -8,7 +8,7 @@ import (
 	"github.com/tajtiattila/cmdmain"
 	"github.com/tajtiattila/geocode"
 	"github.com/tajtiattila/track"
-	"github.com/tajtiattila/track/internal/trackmath"
+	"github.com/tajtiattila/track/geomath"
 )
 
 type NearCmd struct {
@@ -64,9 +64,9 @@ func (c *NearCmd) find(gc geocode.Geocoder, place string, trk track.Track) error
 		fmt.Printf("Geocode result for %s is:\n%+v\n", place, r)
 	}
 
-	q3 := trackmath.Pt3(r.Lat, r.Long)
-	ne := trackmath.Pt3(r.North, r.East)
-	sw := trackmath.Pt3(r.South, r.West)
+	q3 := geomath.Pt3(r.Lat, r.Long)
+	ne := geomath.Pt3(r.North, r.East)
+	sw := geomath.Pt3(r.South, r.West)
 
 	d2 := c.dist * c.dist
 	if x := dist3sq(q3, ne); x > d2 {
@@ -99,7 +99,7 @@ func (c *NearCmd) find(gc geocode.Geocoder, place string, trk track.Track) error
 	return nil
 }
 
-func dist3sq(a, b trackmath.Point3) float64 {
+func dist3sq(a, b geomath.Point3) float64 {
 	d := a.Sub(b)
 	return d.Dot(d)
 }

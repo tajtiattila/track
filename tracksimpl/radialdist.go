@@ -2,7 +2,7 @@ package tracksimpl
 
 import (
 	"github.com/tajtiattila/track"
-	"github.com/tajtiattila/track/internal/trackmath"
+	"github.com/tajtiattila/track/geomath"
 )
 
 // RadialDistance filters src by dropping track points
@@ -20,7 +20,7 @@ type RadialDistance struct {
 func (rd RadialDistance) Run(dst, src track.Track) track.Track {
 	dd := rd.D / 2
 	dd *= dd
-	var stop3 trackmath.Point3
+	var stop3 geomath.Point3
 	var last track.Point
 	emitLast := false
 	for i, p := range src {

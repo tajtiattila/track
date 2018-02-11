@@ -4,7 +4,7 @@ import (
 	"sort"
 	"time"
 
-	"github.com/tajtiattila/track/internal/trackmath"
+	"github.com/tajtiattila/track/trackutil"
 )
 
 // Len returns the number of track points in trk.
@@ -73,5 +73,5 @@ func (trk Track) TimeIndex(t time.Time) int {
 // It returns the closest point if trk.HasTime(t) is false,
 // and (0, 0) if trk is empty.
 func (trk Track) At(t time.Time) (lat, long float64) {
-	return trackmath.Lookup(trk, t)
+	return trackutil.Lookup(trk, t)
 }

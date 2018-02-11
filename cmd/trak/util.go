@@ -10,7 +10,7 @@ import (
 	"github.com/tajtiattila/basedir"
 	"github.com/tajtiattila/geocode"
 	"github.com/tajtiattila/track"
-	"github.com/tajtiattila/track/internal/trackmath"
+	"github.com/tajtiattila/track/geomath"
 	"github.com/tajtiattila/track/trackio"
 )
 
@@ -143,8 +143,8 @@ func newGeocoder() (geocode.Geocoder, error) {
 	return g, nil
 }
 
-func pt3(p track.Point) trackmath.Point3 {
-	return trackmath.Pt3(p.Lat(), p.Long())
+func pt3(p track.Point) geomath.Point3 {
+	return geomath.Pt3(p.Lat(), p.Long())
 }
 
 func trackTimeRange(trk track.Track, start, end time.Time) track.Track {
